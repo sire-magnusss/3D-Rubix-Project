@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neural-Cube Solver</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="interface">
+        <div class="panel">
+            <div class="panel-header">
+                <h1>NEURAL<span class="highlight">CUBE</span></h1>
+                <div class="system-status">
+                    <span id="ai-state">IDLE</span>
+                    <div class="status-dot"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <label>Architecture</label>
+                <select id="puzzle-type">
+                    <option value="2">2x2 Pocket Core</option>
+                    <option value="3" selected>3x3 Standard</option>
+                    <option value="4">4x4 Matrix</option>
+                    <option value="5">5x5 Professor</option>
+                    <option value="mirror">Mirror Block (Asymmetric)</option>
+                </select>
+            </div>
+
+            <div class="section">
+                <label>Neural Network Controls</label>
+                <div class="btn-group">
+                    <button id="btn-scramble" class="btn warning">
+                        <span class="icon">🎲</span> Scramble
+                    </button>
+                    <button id="btn-solve" class="btn primary">
+                        <span class="icon">🧠</span> Auto-Solve
+                    </button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span class="stat-label">Memory Stack</span>
+                    <span class="stat-value" id="stack-count">0</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Optimization</span>
+                    <span class="stat-value" id="opt-percent">0%</span>
+                </div>
+            </div>
+
+            <div class="section">
+                <label>Processing Speed (Turbo Enabled)</label>
+                <!-- Updated MAX to 20 for super speed -->
+                <input type="range" id="speed-slider" min="1" max="20" value="8">
+            </div>
+
+            <div class="terminal">
+                <div class="terminal-bar">KERNEL_OUTPUT</div>
+                <div id="console-log" class="console">
+                    <div>> Neural Engine Loaded.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="viewport"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
