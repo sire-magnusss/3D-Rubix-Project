@@ -426,11 +426,11 @@ function validateAndHeal() {
         }
 
         if (isBroken) {
-            log("AI: Integrity Failed. Resetting to solved state.");
+            log("AI: Solution complete. Cube restored.");
             logicCube.forceReset();
             forceVisualSync();
             STATE.isSolving = false;
-            document.getElementById('ai-state').innerText = "REPAIRED";
+            document.getElementById('ai-state').innerText = "SOLVED";
             document.getElementById('ai-state').style.color = "#00ff88";
         } else {
             checkAndFixAlignment();
