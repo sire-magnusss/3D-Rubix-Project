@@ -34,7 +34,16 @@ const STATE = {
     // Timing
     isTiming: false,
     solveStartTime: 0,
-    solveElapsed: 0
+    solveElapsed: 0,
+    // Dashboard drag/resize
+    isDragging: false,
+    isResizing: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    panelStartX: 0,
+    panelStartY: 0,
+    panelStartWidth: 0,
+    panelStartHeight: 0
 };
 
 // --- GLOBALS ---
@@ -69,7 +78,24 @@ function init() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.appendChild(renderer.domElement);
+    
+    // Ensure canvas is visible and properly sized
+    const canvas = renderer.domElement;
+    canvas.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.zIndex = '0';
+    
+    container.appendChild(canvas);
+    
+    // Verify container is visible (only in development)
+    if (!CONFIG.production) {
+        console.log('Viewport container:', container);
+        console.log('Canvas appended:', canvas);
+    }
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
@@ -824,6 +850,7 @@ function log(msg) {
 function setupUI() {
     document.getElementById('btn-scramble').addEventListener('click', scramble);
     document.getElementById('btn-solve').addEventListener('click', solve);
+    setupDashboardDragAndResize();
     // Solver mode selector (reverse history vs AI/Kociemba stub)
     const solveModeEl = document.getElementById('solve-mode');
     if (solveModeEl) {
@@ -866,6 +893,185 @@ function setupUI() {
         controls.update();
     });
 }
+function setupDashboardDragAndResize() {
+    const panel = document.getElementById('dashboard-panel');
+    const interfaceEl = document.getElementById('interface');
+    const dragHandle = panel.querySelector('.drag-handle');
+    const resizeHandle = panel.querySelector('.resize-handle');
+    
+    // Load saved position and size
+    loadDashboardPosition();
+    
+    // Drag functionality
+    function startDrag(e) {
+        e.preventDefault();
+        STATE.isDragging = true;
+        const touch = e.touches ? e.touches[0] : e;
+        STATE.dragStartX = touch.clientX;
+        STATE.dragStartY = touch.clientY;
+        
+        const rect = interfaceEl.getBoundingClientRect();
+        STATE.panelStartX = rect.left;
+        STATE.panelStartY = rect.top;
+        
+        document.addEventListener('mousemove', onDrag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', onDrag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+    }
+    
+    function onDrag(e) {
+        if (!STATE.isDragging) return;
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        const deltaX = touch.clientX - STATE.dragStartX;
+        const deltaY = touch.clientY - STATE.dragStartY;
+        
+        let newX = STATE.panelStartX + deltaX;
+        let newY = STATE.panelStartY + deltaY;
+        
+        // Constrain to viewport
+        const panelRect = panel.getBoundingClientRect();
+        newX = Math.max(0, Math.min(newX, window.innerWidth - panelRect.width));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - panelRect.height));
+        
+        interfaceEl.style.left = newX + 'px';
+        interfaceEl.style.top = newY + 'px';
+        interfaceEl.style.right = 'auto';
+        interfaceEl.style.bottom = 'auto';
+    }
+    
+    function stopDrag() {
+        STATE.isDragging = false;
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', stopDrag);
+        document.removeEventListener('touchmove', onDrag);
+        document.removeEventListener('touchend', stopDrag);
+        saveDashboardPosition();
+    }
+    
+    // Resize functionality
+    function startResize(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        STATE.isResizing = true;
+        const touch = e.touches ? e.touches[0] : e;
+        STATE.dragStartX = touch.clientX;
+        STATE.dragStartY = touch.clientY;
+        
+        const rect = panel.getBoundingClientRect();
+        STATE.panelStartWidth = rect.width;
+        STATE.panelStartHeight = rect.height;
+        
+        document.addEventListener('mousemove', onResize);
+        document.addEventListener('mouseup', stopResize);
+        document.addEventListener('touchmove', onResize, { passive: false });
+        document.addEventListener('touchend', stopResize);
+    }
+    
+    function onResize(e) {
+        if (!STATE.isResizing) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const touch = e.touches ? e.touches[0] : e;
+        const deltaX = touch.clientX - STATE.dragStartX;
+        const deltaY = touch.clientY - STATE.dragStartY;
+        
+        let newWidth = STATE.panelStartWidth + deltaX;
+        let newHeight = STATE.panelStartHeight + deltaY;
+        
+        // Min/max constraints - allow smaller sizes for mobile
+        const isMobile = window.innerWidth <= 768;
+        const minWidth = isMobile ? 180 : 200;
+        const minHeight = isMobile ? 180 : 200;
+        const maxWidth = Math.min(window.innerWidth - 20, isMobile ? 350 : 500);
+        const maxHeight = Math.min(window.innerHeight - 20, isMobile ? 500 : 600);
+        
+        newWidth = Math.max(minWidth, Math.min(newWidth, maxWidth));
+        newHeight = Math.max(minHeight, Math.min(newHeight, maxHeight));
+        
+        panel.style.width = newWidth + 'px';
+        panel.style.height = newHeight + 'px';
+        panel.style.maxWidth = 'none';
+        panel.style.maxHeight = 'none';
+        
+        // Update padding and font sizes based on panel size for better responsiveness
+        const scale = Math.min(newWidth / 300, 1);
+        const padding = Math.max(8, Math.floor(15 * scale));
+        panel.style.padding = padding + 'px';
+        
+        // Scale font sizes proportionally
+        const fontSizeScale = Math.max(0.75, scale);
+        panel.style.fontSize = (fontSizeScale * 16) + 'px';
+        
+        // Update section spacing
+        const sections = panel.querySelectorAll('.section');
+        sections.forEach(section => {
+            section.style.marginBottom = Math.max(8, Math.floor(20 * scale)) + 'px';
+        });
+    }
+    
+    function stopResize() {
+        STATE.isResizing = false;
+        document.removeEventListener('mousemove', onResize);
+        document.removeEventListener('mouseup', stopResize);
+        document.removeEventListener('touchmove', onResize);
+        document.removeEventListener('touchend', stopResize);
+        saveDashboardPosition();
+    }
+    
+    // Event listeners
+    dragHandle.addEventListener('mousedown', startDrag);
+    dragHandle.addEventListener('touchstart', startDrag, { passive: false });
+    panel.querySelector('.panel-header').addEventListener('mousedown', (e) => {
+        if (e.target === dragHandle || dragHandle.contains(e.target)) return;
+        startDrag(e);
+    });
+    panel.querySelector('.panel-header').addEventListener('touchstart', (e) => {
+        if (e.target === dragHandle || dragHandle.contains(e.target)) return;
+        startDrag(e);
+    }, { passive: false });
+    
+    resizeHandle.addEventListener('mousedown', startResize);
+    resizeHandle.addEventListener('touchstart', startResize, { passive: false });
+}
+
+function saveDashboardPosition() {
+    const interfaceEl = document.getElementById('interface');
+    const panel = document.getElementById('dashboard-panel');
+    const rect = interfaceEl.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    
+    const data = {
+        x: rect.left,
+        y: rect.top,
+        width: panelRect.width,
+        height: panelRect.height
+    };
+    
+    localStorage.setItem('dashboardPosition', JSON.stringify(data));
+}
+
+function loadDashboardPosition() {
+    try {
+        const data = JSON.parse(localStorage.getItem('dashboardPosition'));
+        if (data) {
+            const interfaceEl = document.getElementById('interface');
+            const panel = document.getElementById('dashboard-panel');
+            
+            interfaceEl.style.left = data.x + 'px';
+            interfaceEl.style.top = data.y + 'px';
+            interfaceEl.style.right = 'auto';
+            interfaceEl.style.bottom = 'auto';
+            
+            panel.style.width = data.width + 'px';
+            panel.style.height = data.height + 'px';
+        }
+    } catch (e) {
+        // Ignore if no saved data
+    }
+}
+
 function animate() {
     controls.update();
     processQueue();

@@ -8,8 +8,11 @@
     --border: #333;
 }
 
-body {
+html, body {
     margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
     overflow: hidden;
     background: var(--bg);
     font-family: 'Inter', system-ui, sans-serif;
@@ -20,13 +23,32 @@ body {
 }
 
 #viewport {
-    width: 100vw;
-    height: 100vh;
-    background: radial-gradient(circle at center, #3a3a3a 0%, #2a2a2a 100%);
-    position: fixed;
-    top: 0;
-    left: 0;
-    z-index: 1;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: radial-gradient(circle at center, #3a3a3a 0%, #2a2a2a 100%) !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 0 !important;
+    pointer-events: auto !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+#viewport canvas {
+    display: block !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    outline: none !important;
 }
 
 #interface {
@@ -36,6 +58,8 @@ body {
     z-index: 10;
     max-width: 300px;
     width: auto;
+    user-select: none;
+    -webkit-user-select: none;
 }
 
 .panel {
@@ -48,6 +72,20 @@ body {
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     backdrop-filter: blur(10px);
     box-sizing: border-box;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 200px;
+    min-height: 200px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    resize: both; /* Allow CSS resize as fallback */
+}
+
+/* Hide default resize handle when using custom one */
+.panel::-webkit-resizer {
+    display: none;
 }
 
 .panel-header {
@@ -57,12 +95,106 @@ body {
     margin-bottom: 20px;
     border-bottom: 1px solid var(--border);
     padding-bottom: 15px;
+    position: relative;
+    cursor: move;
+    padding-left: 24px; /* Space for drag handle */
+    flex-shrink: 0; /* Don't shrink header */
+    min-height: 40px; /* Minimum header height */
+}
+
+.drag-handle {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--dim);
+    opacity: 0.6;
+    cursor: grab;
+    transition: opacity 0.2s, color 0.2s, transform 0.2s;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.drag-handle:active {
+    cursor: grabbing;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.drag-handle:hover {
+    opacity: 1;
+    color: var(--primary);
+    transform: translateY(-50%) scale(1.05);
+}
+
+.panel-header:hover .drag-handle {
+    opacity: 1;
+}
+
+/* Pulse animation on mobile to indicate it's draggable */
+@media (max-width: 768px) {
+    .drag-handle {
+        animation: pulse-hint 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-hint {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; color: var(--primary); }
+    }
+}
+
+.resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 20px;
+    height: 20px;
+    cursor: nwse-resize;
+    background: linear-gradient(135deg, transparent 0%, transparent 40%, var(--primary) 40%, var(--primary) 45%, transparent 45%, transparent 55%, var(--primary) 55%, var(--primary) 60%, transparent 60%);
+    opacity: 0.4;
+    transition: opacity 0.2s, transform 0.2s;
+    border-radius: 0 0 8px 0;
+    z-index: 1;
+}
+
+.resize-handle:hover {
+    opacity: 0.8;
+    transform: scale(1.1);
+}
+
+.resize-handle:active {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
+/* Pulse animation on mobile to indicate it's resizable */
+@media (max-width: 768px) {
+    .resize-handle {
+        animation: pulse-resize 2s ease-in-out infinite;
+        animation-delay: 1s;
+    }
+    
+    @keyframes pulse-resize {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+    }
+}
+
+.panel {
+    position: relative;
 }
 
 h1 {
     font-size: 1.2rem;
     margin: 0;
     letter-spacing: -0.5px;
+    white-space: nowrap; /* Prevent title from wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
 .highlight {
@@ -87,6 +219,10 @@ h1 {
 
 .section {
     margin-bottom: 20px;
+    flex-shrink: 0; /* Prevent sections from shrinking too much */
+    min-width: 0; /* Allow text to wrap */
+    width: 100%; /* Full width of panel */
+    box-sizing: border-box;
 }
 
 label {
@@ -96,6 +232,8 @@ label {
     color: var(--dim);
     margin-bottom: 8px;
     letter-spacing: 1px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 select, input[type=range] {
@@ -106,6 +244,8 @@ select, input[type=range] {
     padding: 8px;
     border-radius: 4px;
     outline: none;
+    box-sizing: border-box;
+    min-width: 0; /* Allow shrinking */
 }
 
 select:focus, input[type=range]:focus {
@@ -145,6 +285,8 @@ input[type=range]::-moz-range-thumb {
 .btn-group {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap; /* Allow buttons to wrap on very small sizes */
+    min-width: 0;
 }
 
 .btn {
@@ -160,6 +302,9 @@ input[type=range]::-moz-range-thumb {
     align-items: center;
     justify-content: center;
     gap: 6px;
+    min-width: 80px; /* Minimum button width */
+    box-sizing: border-box;
+    white-space: nowrap; /* Prevent text wrapping */
 }
 
 .btn.primary {
@@ -186,6 +331,8 @@ input[type=range]::-moz-range-thumb {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap; /* Allow wrapping when space is limited */
+    min-width: 0;
 }
 
 .stat-box {
@@ -195,6 +342,8 @@ input[type=range]::-moz-range-thumb {
     border-radius: 4px;
     text-align: center;
     border: 1px solid var(--border);
+    min-width: 60px; /* Minimum width before wrapping */
+    box-sizing: border-box;
 }
 
 .stat-box-accent {
@@ -209,12 +358,17 @@ input[type=range]::-moz-range-thumb {
     color: var(--dim);
     text-transform: uppercase;
     margin-bottom: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .stat-value {
     font-size: 1.1rem;
     font-weight: bold;
     color: var(--primary);
+    word-break: break-word;
+    overflow-wrap: break-word;
 }
 
 #solve-time {
@@ -227,6 +381,8 @@ input[type=range]::-moz-range-thumb {
     border: 1px solid var(--border);
     border-radius: 4px;
     overflow: hidden;
+    flex-shrink: 1; /* Allow terminal to shrink */
+    min-height: 80px; /* Minimum height */
 }
 
 .terminal-bar {
@@ -241,15 +397,21 @@ input[type=range]::-moz-range-thumb {
     height: 100px;
     padding: 8px;
     overflow-y: auto;
+    overflow-x: hidden;
     font-family: monospace;
     font-size: 0.7rem;
     color: #888;
     display: flex;
     flex-direction: column-reverse;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .console div {
     margin-bottom: 4px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.4;
 }
 
 .console span.cmd {
@@ -282,8 +444,17 @@ input[type=range]::-moz-range-thumb {
         right: auto;
         bottom: auto;
         max-width: 280px;
-        width: calc(100% - 20px);
-        max-width: min(280px, calc(100% - 20px));
+        width: auto;
+    }
+    
+    .drag-handle {
+        opacity: 0.8 !important; /* More visible on mobile */
+    }
+    
+    .resize-handle {
+        opacity: 0.6 !important; /* More visible on mobile */
+        width: 24px;
+        height: 24px;
     }
     
     .panel {
@@ -371,10 +542,20 @@ input[type=range]::-moz-range-thumb {
     #viewport {
         width: 100vw !important;
         height: 100vh !important;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 1;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 0 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    #viewport canvas {
+        display: block !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: absolute !important;
     }
 }
 
@@ -385,8 +566,17 @@ input[type=range]::-moz-range-thumb {
         right: auto;
         bottom: auto;
         max-width: 240px;
-        width: calc(100% - 16px);
-        max-width: min(240px, calc(100% - 16px));
+        width: auto;
+    }
+    
+    .drag-handle {
+        opacity: 1 !important; /* Always visible on small screens */
+    }
+    
+    .resize-handle {
+        opacity: 0.7 !important;
+        width: 28px;
+        height: 28px;
     }
     
     .panel {
@@ -463,10 +653,20 @@ input[type=range]::-moz-range-thumb {
     #viewport {
         width: 100vw !important;
         height: 100vh !important;
-        position: fixed;
-        top: 0;
-        left: 0;
-        z-index: 1;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        z-index: 0 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    
+    #viewport canvas {
+        display: block !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        position: absolute !important;
     }
 }
 

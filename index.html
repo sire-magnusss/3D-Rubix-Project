@@ -3,22 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" type="image/png" href="rubix.png">
     <title>Rubik's Debugger Edition</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <div id="interface">
-        <div class="panel">
+        <div class="panel" id="dashboard-panel">
             <div class="panel-header">
+                <div class="drag-handle" title="Drag to move">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <circle cx="4" cy="4" r="1.5"/>
+                        <circle cx="12" cy="4" r="1.5"/>
+                        <circle cx="4" cy="8" r="1.5"/>
+                        <circle cx="12" cy="8" r="1.5"/>
+                        <circle cx="4" cy="12" r="1.5"/>
+                        <circle cx="12" cy="12" r="1.5"/>
+                    </svg>
+                </div>
                 <h1>CUBE<span class="highlight">DEBUG</span></h1>
                 <div class="system-status">
                     <span id="ai-state">IDLE</span>
                     <div class="status-dot"></div>
                 </div>
             </div>
+            <div class="resize-handle" title="Drag to resize"></div>
 
             <div class="section">
                 <label>Architecture</label>
