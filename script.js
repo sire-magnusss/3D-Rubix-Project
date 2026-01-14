@@ -6,7 +6,8 @@ const CONFIG = {
     colors: {
         R: 0xb90000, L: 0xff5900, U: 0xffffff, D: 0xffd500, F: 0x009b48, B: 0x0045ad, CORE: 0x111111
     },
-    spacing: 1.05,
+    spacing: 1.08, // Increased spacing for realistic gaps
+    cubeletSize: 0.92, // Slightly smaller cubelets to show gaps
     animSpeed: 0.25
 };
 
@@ -31,7 +32,8 @@ function init() {
     const container = document.getElementById('viewport');
     
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x050505);
+    // Grey background for realistic look
+    scene.background = new THREE.Color(0x2a2a2a);
     scene.add(pivot);
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
@@ -41,15 +43,58 @@ function init() {
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2);
-    dirLight.position.set(10, 20, 10);
+    // Enhanced lighting setup for realistic look
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(10, 15, 8);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 50;
+    dirLight.shadow.camera.left = -10;
+    dirLight.shadow.camera.right = 10;
+    dirLight.shadow.camera.top = 10;
+    dirLight.shadow.camera.bottom = -10;
     scene.add(dirLight);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+
+    // Fill light from opposite side
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    fillLight.position.set(-8, 5, -5);
+    scene.add(fillLight);
+
+    // Ambient light for overall illumination
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    // Add ground plane for hover effect (positioned below cube)
+    const groundGeometry = new THREE.PlaneGeometry(40, 40);
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x1a1a1a,
+        roughness: 0.9,
+        metalness: 0.05
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -5; // Closer to cube for better hover effect
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    // Add subtle gradient background effect
+    const gradientGeometry = new THREE.PlaneGeometry(100, 100);
+    const gradientMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0x2a2a2a,
+        side: THREE.DoubleSide
+    });
+    const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
+    gradientPlane.rotation.x = -Math.PI / 2;
+    gradientPlane.position.y = -6;
+    scene.add(gradientPlane);
 
     buildPuzzle(3, 'normal');
     
@@ -137,24 +182,59 @@ function buildPuzzle(order, type) {
         const ox = p.ox, oy = p.oy, oz = p.oz;
         const offset = (order - 1) / 2;
 
+        // Create realistic materials with proper roughness and metalness
+        const createMaterial = (color) => {
+            return new THREE.MeshStandardMaterial({
+                color: color,
+                roughness: 0.3,  // Slight shine like real plastic
+                metalness: 0.0,  // Non-metallic
+                flatShading: false,
+                envMapIntensity: 0.5
+            });
+        };
+
         const materials = [
-            new THREE.MeshStandardMaterial({ color: ox === offset ? CONFIG.colors.R : CONFIG.colors.CORE }),
-            new THREE.MeshStandardMaterial({ color: ox === -offset ? CONFIG.colors.L : CONFIG.colors.CORE }),
-            new THREE.MeshStandardMaterial({ color: oy === offset ? CONFIG.colors.U : CONFIG.colors.CORE }),
-            new THREE.MeshStandardMaterial({ color: oy === -offset ? CONFIG.colors.D : CONFIG.colors.CORE }),
-            new THREE.MeshStandardMaterial({ color: oz === offset ? CONFIG.colors.F : CONFIG.colors.CORE }),
-            new THREE.MeshStandardMaterial({ color: oz === -offset ? CONFIG.colors.B : CONFIG.colors.CORE }),
+            createMaterial(ox === offset ? CONFIG.colors.R : CONFIG.colors.CORE),
+            createMaterial(ox === -offset ? CONFIG.colors.L : CONFIG.colors.CORE),
+            createMaterial(oy === offset ? CONFIG.colors.U : CONFIG.colors.CORE),
+            createMaterial(oy === -offset ? CONFIG.colors.D : CONFIG.colors.CORE),
+            createMaterial(oz === offset ? CONFIG.colors.F : CONFIG.colors.CORE),
+            createMaterial(oz === -offset ? CONFIG.colors.B : CONFIG.colors.CORE),
         ];
 
-        if (type === 'mirror') materials.forEach(m => { m.color.setHex(0x333333); m.roughness = 0.2; });
+        // Make core pieces darker and less reflective
+        if (materials[0].color.getHex() === CONFIG.colors.CORE) {
+            materials.forEach(m => {
+                m.roughness = 0.7;
+                m.color.multiplyScalar(0.3);
+            });
+        }
+
+        if (type === 'mirror') {
+            materials.forEach(m => { 
+                m.color.setHex(0x333333); 
+                m.roughness = 0.1;
+                m.metalness = 0.3;
+            });
+        }
 
         const mesh = new THREE.Mesh(geom, materials);
         if (type === 'mirror') mesh.scale.set(1 + ox*0.35, 1 + oy*0.35, 1 + oz*0.35);
 
-        mesh.add(new THREE.LineSegments(
+        // Add subtle black edges for realistic separation
+        const edgeMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x000000,
+            linewidth: 1
+        });
+        const edges = new THREE.LineSegments(
             new THREE.EdgesGeometry(geom),
-            new THREE.LineBasicMaterial({ color: 0x000000 })
-        ));
+            edgeMaterial
+        );
+        mesh.add(edges);
+
+        // Enable shadows for realistic depth
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
 
         p.mesh = mesh;
         scene.add(mesh);
