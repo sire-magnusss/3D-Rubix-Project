@@ -22,36 +22,27 @@ const STATE = {
 let scene, camera, renderer, controls;
 let allCubelets = [];
 const moveQueue = [];
-let pivot = new THREE.Object3D(); 
 let logicCube = null;
 
-// --- DATABASE OF PERFECTION ---
-// There are exactly 24 valid rotations for a cube in a grid.
-// We calculate them once and force every piece to match one of these.
+// --- DATABASE OF PERFECTION (24 Valid Rotations) ---
+// This prevents "Wrong Face" colors by locking rotation to known valid states.
 const VALID_QUATERNIONS = [];
-(function generateDatabase() {
+(function buildDatabase() {
     const axes = [
         new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
         new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
         new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)
     ];
-    
-    // Check all combinations of Up and Forward
-    for (let up of axes) {
-        for (let fwd of axes) {
-            // Must be perpendicular
-            if (Math.abs(up.dot(fwd)) < 0.01) {
+    for (let fwd of axes) {
+        for (let up of axes) {
+            if (Math.abs(fwd.dot(up)) < 0.01) { 
                 const m = new THREE.Matrix4();
                 const right = new THREE.Vector3().crossVectors(up, fwd).normalize();
                 m.makeBasis(right, up, fwd);
                 const q = new THREE.Quaternion().setFromRotationMatrix(m);
-                
-                // Add unique only
-                let found = false;
-                for (let existing of VALID_QUATERNIONS) {
-                    if (existing.dot(q) > 0.99) found = true; // Floating point tolerance
-                }
-                if (!found) VALID_QUATERNIONS.push(q);
+                let exists = false;
+                for(let vq of VALID_QUATERNIONS) if(vq.dot(q) > 0.99) exists = true;
+                if(!exists) VALID_QUATERNIONS.push(q);
             }
         }
     }
@@ -63,7 +54,6 @@ function init() {
     
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050505);
-    scene.add(pivot);
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(6, 6, 8);
@@ -88,7 +78,7 @@ function init() {
     setupUI();
 }
 
-// --- LOGIC ENGINE (DIGITAL SNAP) ---
+// --- LOGIC ENGINE ---
 class VirtualCube {
     constructor(order, type) {
         this.pieces = [];
@@ -98,61 +88,61 @@ class VirtualCube {
             for (let y = 0; y < order; y++) {
                 for (let z = 0; z < order; z++) {
                     this.pieces.push({
-                        // Logic Position (Integers)
+                        // Logic State
                         x: x - offset, y: y - offset, z: z - offset,
+                        q: new THREE.Quaternion(), 
                         
-                        // Logic Orientation (Quaternion)
-                        q: new THREE.Quaternion(), // Identity
-                        
-                        // IDs
+                        // ID
                         ox: x - offset, oy: y - offset, oz: z - offset,
                         isCenter: (Math.abs(x-offset)+Math.abs(y-offset)+Math.abs(z-offset) === 1),
                         
-                        mesh: null
+                        // Visual
+                        mesh: null,
+                        
+                        // Animation Buffers
+                        startPos: new THREE.Vector3(),
+                        startRot: new THREE.Quaternion(),
+                        targetPos: new THREE.Vector3(),
+                        targetRot: new THREE.Quaternion()
                     });
                 }
             }
         }
     }
 
-    // This updates the Logic Variables ONLY.
-    runLogicRotate(axis, slice, dir) {
-        const eps = 0.1;
+    // Pre-calculate the destination before animation starts
+    calculateNextState(p, axis, dir) {
+        // 1. Position Rotation (Float -> Int)
+        const pos = new THREE.Vector3(p.x, p.y, p.z);
         const axisVec = new THREE.Vector3();
         axisVec[axis] = 1;
+        pos.applyAxisAngle(axisVec, dir * (Math.PI / 2));
         
-        // Rotation for this move
+        const nx = Math.round(pos.x * 2) / 2;
+        const ny = Math.round(pos.y * 2) / 2;
+        const nz = Math.round(pos.z * 2) / 2;
+
+        // 2. Rotation Calculation
         const rotQ = new THREE.Quaternion().setFromAxisAngle(axisVec, dir * (Math.PI / 2));
+        const rawNextQ = p.q.clone().premultiply(rotQ).normalize();
 
-        this.pieces.forEach(p => {
-            if (Math.abs(p[axis] - slice) < eps) {
-                // 1. Rotate Position (Integers)
-                const pos = new THREE.Vector3(p.x, p.y, p.z);
-                pos.applyAxisAngle(axisVec, dir * (Math.PI / 2));
-                
-                p.x = Math.round(pos.x * 2) / 2;
-                p.y = Math.round(pos.y * 2) / 2;
-                p.z = Math.round(pos.z * 2) / 2;
+        // 3. QUANTUM SNAP (Fixes the "Wrong Face" bug)
+        // We find the mathematically perfect quaternion from our database.
+        let bestQ = rawNextQ;
+        let maxDot = -1;
+        for(let vq of VALID_QUATERNIONS) {
+            const dot = Math.abs(rawNextQ.dot(vq));
+            if(dot > maxDot) { maxDot = dot; bestQ = vq; }
+        }
 
-                // 2. Rotate Orientation
-                p.q.premultiply(rotQ); // Apply world rotation
-                
-                // 3. DIGITAL SNAP (The Fix)
-                // Find the closest valid quaternion from the database and lock to it.
-                // This eliminates the "Wrong Face" bug caused by vector math errors.
-                let bestQ = p.q;
-                let maxDot = -1;
-                
-                for(let validQ of VALID_QUATERNIONS) {
-                    const dot = Math.abs(p.q.dot(validQ));
-                    if (dot > maxDot) {
-                        maxDot = dot;
-                        bestQ = validQ;
-                    }
-                }
-                p.q.copy(bestQ);
-            }
-        });
+        return { x: nx, y: ny, z: nz, q: bestQ.clone() };
+    }
+
+    commitState(p, nextState) {
+        p.x = nextState.x;
+        p.y = nextState.y;
+        p.z = nextState.z;
+        p.q.copy(nextState.q);
     }
 }
 
@@ -161,9 +151,6 @@ function buildPuzzle(order, type) {
     STATE.type = type;
     STATE.memoryStack = [];
     updateUI();
-
-    pivot.rotation.set(0,0,0);
-    while(pivot.children.length) scene.attach(pivot.children[0]);
 
     allCubelets.forEach(m => {
         scene.remove(m);
@@ -205,23 +192,21 @@ function buildPuzzle(order, type) {
     forceVisualSync();
 }
 
-// --- VISUAL SYNC ---
-// Overwrites the visual mesh with the Logic State
+// Teleport visuals to exact logic state
 function forceVisualSync() {
     const spacing = (STATE.type === 'mirror') ? 1.4 : CONFIG.spacing;
-    
     logicCube.pieces.forEach(p => {
-        const m = p.mesh;
-        m.position.set(p.x * spacing, p.y * spacing, p.z * spacing);
-        m.quaternion.copy(p.q);
-        m.updateMatrix();
-        m.updateMatrixWorld();
+        p.mesh.position.set(p.x * spacing, p.y * spacing, p.z * spacing);
+        p.mesh.quaternion.copy(p.q);
+        p.mesh.updateMatrix();
+        p.mesh.updateMatrixWorld();
     });
 }
 
-// --- ANIMATION ENGINE (PIVOT + DIGITAL SNAP) ---
+// --- ANIMATION ENGINE (STATELESS ARC) ---
 let currentMove = null;
 let progress = 0;
+let activeGroup = [];
 
 function processQueue() {
     if (!moveQueue.length) {
@@ -230,7 +215,6 @@ function processQueue() {
             document.getElementById('ai-state').innerText = "IDLE";
             document.getElementById('ai-state').style.color = "#666";
             
-            // Final consistency check
             forceVisualSync();
             checkAndFixAlignment();
         }
@@ -247,19 +231,24 @@ function processQueue() {
         document.getElementById('ai-state').innerText = "PROCESSING";
         document.getElementById('ai-state').style.color = "#00ff88";
 
-        // Identify pieces (Using Logic)
+        activeGroup = [];
         const eps = 0.1;
-        const activeLogicPieces = logicCube.pieces.filter(p => 
-            Math.abs(p[currentMove.axis] - currentMove.slice) < eps
-        );
+        const spacing = (STATE.type === 'mirror') ? 1.4 : CONFIG.spacing;
 
-        // Attach to Pivot
-        pivot.rotation.set(0,0,0);
-        pivot.position.set(0,0,0);
-        pivot.updateMatrixWorld();
+        logicCube.pieces.forEach(p => {
+            if (Math.abs(p[currentMove.axis] - currentMove.slice) < eps) {
+                // Snapshot Start
+                p.startPos.set(p.x * spacing, p.y * spacing, p.z * spacing);
+                p.startRot.copy(p.q);
 
-        activeLogicPieces.forEach(p => {
-            pivot.attach(p.mesh);
+                // Calculate Target (Quantum Snapped)
+                const next = logicCube.calculateNextState(p, currentMove.axis, currentMove.dir);
+                
+                // Store Target
+                p.nextState = next;
+                
+                activeGroup.push(p);
+            }
         });
     }
 
@@ -267,50 +256,53 @@ function processQueue() {
     
     // Turbo Mode
     if (speed > 1.0) {
-        progress = Math.PI / 2 + 0.1;
+        progress = 1.1;
     } else {
         progress += speed;
     }
 
-    if (progress >= Math.PI / 2) {
+    if (progress >= 1.0) {
         // --- FINISH ---
         
-        // 1. Finish Arc Visuals
-        const axisVec = new THREE.Vector3();
-        axisVec[currentMove.axis] = 1;
-        pivot.quaternion.setFromAxisAngle(axisVec, currentMove.dir * (Math.PI / 2));
-        pivot.updateMatrixWorld();
+        // 1. Commit the Quantum State
+        activeGroup.forEach(p => {
+            logicCube.commitState(p, p.nextState);
+        });
 
-        // 2. Detach
-        while(pivot.children.length > 0) {
-            scene.attach(pivot.children[0]);
-        }
-
-        // 3. Update Logic (With Database Snap)
-        logicCube.runLogicRotate(currentMove.axis, currentMove.slice, currentMove.dir);
-
-        // 4. Force Visuals to match Logic
+        // 2. Hard Teleport (No visual drift possible)
         forceVisualSync();
 
         currentMove = null;
+        activeGroup = [];
     } else {
         // --- ANIMATE ---
+        // We calculate the exact position on the circle for this specific frame.
+        // No Pivots. No Parenting. Pure Math.
+        
+        const angle = currentMove.dir * progress * (Math.PI / 2);
         const axisVec = new THREE.Vector3();
         axisVec[currentMove.axis] = 1;
-        pivot.rotation.set(0, 0, 0); 
-        pivot.rotateOnAxis(axisVec, currentMove.dir * progress); 
+
+        activeGroup.forEach(p => {
+            // Position: Rotate the vector around origin (0,0,0)
+            p.mesh.position.copy(p.startPos).applyAxisAngle(axisVec, angle);
+            
+            // Rotation: Rotate the quaternion
+            const qRot = new THREE.Quaternion().setFromAxisAngle(axisVec, angle);
+            p.mesh.quaternion.copy(p.startRot).premultiply(qRot);
+        });
     }
 }
 
-// --- AI ALIGNMENT ---
+// --- AI AUTO-FIX ---
 function checkAndFixAlignment() {
     if (STATE.memoryStack.length > 0) return;
 
-    // Top Center (y=1)
+    // Check Top Center (y=1)
     const topPiece = logicCube.pieces.find(p => p.oy === 1 && p.isCenter);
     if(topPiece) {
         if(Math.abs(topPiece.y - 1) > 0.1) {
-            log("AI: Aligning Orientation...");
+            log("AI: Aligning Top...");
             moveQueue.push({ axis: 'x', slice: 0, dir: 1 });
             moveQueue.push({ axis: 'x', slice: 1, dir: 1 });
             moveQueue.push({ axis: 'x', slice: -1, dir: 1 });
@@ -357,7 +349,6 @@ function solve() {
     updateUI();
 }
 
-// --- UI ---
 function updateUI() {
     document.getElementById('stack-count').innerText = STATE.memoryStack.length;
     if(STATE.memoryStack.length === 0) document.getElementById('opt-percent').innerText = "0%";
@@ -372,9 +363,9 @@ function setupUI() {
     document.getElementById('btn-solve').addEventListener('click', solve);
     document.getElementById('speed-slider').addEventListener('input', e => {
         let val = parseInt(e.target.value);
-        if (val <= 5) CONFIG.animSpeed = val * 0.02; 
-        else if (val <= 15) CONFIG.animSpeed = (val - 5) * 0.05 + 0.1;
-        else CONFIG.animSpeed = 2.0;
+        if (val <= 5) CONFIG.animSpeed = val * 0.02; // Slow
+        else if (val <= 15) CONFIG.animSpeed = (val - 5) * 0.05 + 0.1; 
+        else CONFIG.animSpeed = 2.0; // Turbo
     });
     document.getElementById('puzzle-type').addEventListener('change', e => {
         const val = e.target.value;
