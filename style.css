@@ -47,6 +47,7 @@ body {
     padding: 15px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     backdrop-filter: blur(10px);
+    box-sizing: border-box;
 }
 
 .panel-header {
@@ -276,72 +277,78 @@ input[type=range]::-moz-range-thumb {
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     #interface {
-        top: auto;
-        bottom: 10px;
+        top: 10px;
         left: 10px;
-        right: 10px;
-        max-width: calc(100% - 20px);
-        width: auto;
+        right: auto;
+        bottom: auto;
+        max-width: 280px;
+        width: calc(100% - 20px);
+        max-width: min(280px, calc(100% - 20px));
     }
     
     .panel {
-        max-width: 100%;
         width: 100%;
-        padding: 12px;
+        padding: 10px;
         border-radius: 6px;
-        max-height: 50vh;
+        max-height: calc(100vh - 20px);
         overflow-y: auto;
+        font-size: 0.85rem;
     }
     
     .panel-header {
-        margin-bottom: 15px;
-        padding-bottom: 12px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
     }
     
     h1 {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
     
     .system-status {
-        font-size: 0.65rem;
+        font-size: 0.6rem;
     }
     
     .section {
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     
     label {
-        font-size: 0.6rem;
-        margin-bottom: 5px;
+        font-size: 0.55rem;
+        margin-bottom: 4px;
     }
     
     select, input[type=range] {
-        padding: 8px;
-        font-size: 0.85rem;
+        padding: 6px;
+        font-size: 0.8rem;
     }
     
     .btn {
-        padding: 10px;
-        font-size: 0.85rem;
+        padding: 8px;
+        font-size: 0.75rem;
+    }
+    
+    .btn-group {
+        gap: 6px;
     }
     
     .stats-grid {
         flex-wrap: wrap;
-        gap: 6px;
-        margin-bottom: 12px;
+        gap: 5px;
+        margin-bottom: 10px;
     }
     
     .stat-box {
-        min-width: calc(33.333% - 4px);
-        padding: 6px;
+        min-width: calc(50% - 3px);
+        padding: 5px;
     }
     
     .stat-label {
-        font-size: 0.5rem;
+        font-size: 0.45rem;
+        margin-bottom: 2px;
     }
     
     .stat-value {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
     
     .terminal {
@@ -350,17 +357,17 @@ input[type=range]::-moz-range-thumb {
     }
     
     .console {
-        height: 50px;
-        padding: 5px;
-        font-size: 0.6rem;
-    }
-    
-    .terminal-bar {
-        padding: 3px 6px;
+        height: 40px;
+        padding: 4px;
         font-size: 0.55rem;
     }
     
-    /* Ensure viewport is always visible */
+    .terminal-bar {
+        padding: 2px 5px;
+        font-size: 0.5rem;
+    }
+    
+    /* Ensure viewport is always visible and takes full screen */
     #viewport {
         width: 100vw !important;
         height: 100vh !important;
@@ -373,60 +380,79 @@ input[type=range]::-moz-range-thumb {
 
 @media (max-width: 480px) {
     #interface {
-        top: auto;
-        bottom: 5px;
-        left: 5px;
-        right: 5px;
-        max-width: calc(100% - 10px);
+        top: 8px;
+        left: 8px;
+        right: auto;
+        bottom: auto;
+        max-width: 240px;
+        width: calc(100% - 16px);
+        max-width: min(240px, calc(100% - 16px));
     }
     
     .panel {
         border-radius: 6px;
         padding: 8px;
-        max-height: 40vh;
+        max-height: calc(100vh - 16px);
         overflow-y: auto;
+        font-size: 0.75rem;
     }
     
     .panel-header {
-        margin-bottom: 10px;
-        padding-bottom: 8px;
+        margin-bottom: 8px;
+        padding-bottom: 6px;
     }
     
     h1 {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
+    }
+    
+    .system-status {
+        font-size: 0.55rem;
     }
     
     .section {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
+    }
+    
+    label {
+        font-size: 0.5rem;
+        margin-bottom: 3px;
+    }
+    
+    select, input[type=range] {
+        padding: 5px;
+        font-size: 0.75rem;
     }
     
     .btn-group {
         flex-direction: row;
-        gap: 6px;
+        gap: 5px;
     }
     
     .btn {
-        padding: 10px 8px;
-        font-size: 0.8rem;
+        padding: 7px 5px;
+        font-size: 0.7rem;
     }
     
     .stats-grid {
         flex-direction: row;
         gap: 4px;
+        margin-bottom: 8px;
     }
     
     .stat-box {
         flex: 1;
         min-width: auto;
-        padding: 5px;
+        padding: 4px;
     }
     
     .stat-label {
-        font-size: 0.45rem;
+        font-size: 0.4rem;
+        margin-bottom: 2px;
     }
     
     .stat-value {
-        font-size: 0.8rem;
+        font-size: 0.7rem;
     }
     
     .terminal {
