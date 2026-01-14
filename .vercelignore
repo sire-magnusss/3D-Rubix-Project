@@ -1,0 +1,7 @@
+# Vercel ignore file
+.github/
+CONTRIBUTING.md
+.gitignore
+.vercelignore
+*.md
+!README.md

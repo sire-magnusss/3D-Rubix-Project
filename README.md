@@ -44,6 +44,44 @@ npx http-server -p 8080
 http://localhost:8080
 ```
 
+## Deployment
+
+### Deploy to Vercel (Recommended)
+
+This project is configured for easy deployment on Vercel:
+
+1. **Push your code to GitHub** (if not already done)
+
+2. **Connect to Vercel**:
+   - Go to [vercel.com](https://vercel.com)
+   - Sign in with GitHub
+   - Click "New Project"
+   - Import your repository: `sire-magnusss/3D-Rubix-Project`
+
+3. **Configure Project**:
+   - Framework Preset: **Other** (or leave as default)
+   - Root Directory: `./` (default)
+   - Build Command: Leave empty (static site, no build needed)
+   - Output Directory: `./` (default)
+   - Install Command: Leave empty
+
+4. **Deploy**:
+   - Click "Deploy"
+   - Vercel will automatically detect the `vercel.json` configuration
+   - Your site will be live in seconds! 🚀
+
+5. **Custom Domain** (Optional):
+   - Go to Project Settings → Domains
+   - Add your custom domain
+
+**That's it!** Your Rubik's Cube solver is now live on the web.
+
+### Alternative: Deploy to Other Platforms
+
+- **Netlify**: Drag and drop the project folder
+- **GitHub Pages**: Enable in repository settings
+- **Any static host**: Upload all files to web root
+
 ## Usage
 
 1. **Select Cube Size**: Choose from 2×2, 3×3, 4×4, 5×5, or Mirror cube
