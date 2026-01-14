@@ -53,17 +53,43 @@ http://localhost:8080
 
 ## Solver Implementation
 
-The project currently implements a **BFS (Breadth-First Search)** and **IDA* (Iterative Deepening A*)** based solver. However, due to the complexity of the state space (especially with orientation tracking), the solver may encounter timeout issues for certain cube configurations.
+### Current Approach
+
+The project currently uses a **reverse-scramble solver** - it tracks all scramble moves and reverses them to solve the cube. This approach is simple, reliable, and always works, but it's not optimal.
+
+### Previous Attempts & Challenges
+
+**BFS (Breadth-First Search):**
+- ❌ **Memory Intensive**: The Rubik's Cube has 43+ quintillion possible states (3×3). BFS's exponential space complexity caused server timeouts and memory exhaustion before solutions could be found.
+- The algorithm would consume all available memory and crash/timeout before reaching solutions for complex scrambles.
+
+**IDA* (Iterative Deepening A*):**
+- ❌ **Infinite Execution**: While memory-efficient, IDA* would run indefinitely on complex scrambles, exploring deeper and deeper without finding optimal solutions.
+- The heuristic function needed significant refinement, and the search space remained too vast for practical solving times.
+
+**Why Reverse-Scramble Works:**
+- ✅ Always finds a solution (guaranteed)
+- ✅ Memory efficient (O(n) where n = number of scramble moves)
+- ✅ Fast and reliable
+- ⚠️ Not optimal (solution length = scramble length)
 
 ### Current Status
 
-- ✅ Basic BFS implementation
-- ✅ IDA* algorithm for memory efficiency
+- ✅ Reverse-scramble solver (reliable, always works)
 - ✅ State representation with position and orientation tracking
+- ✅ Smooth animation system
 - ⚠️ **Known Issues**: 
-  - Timeout issues on complex scrambles
-  - One column at medium speed may not align properly (visual alignment bug)
-  - Solver may not find solutions within time limits for difficult states
+  - Visual alignment bug at medium speeds (work in progress)
+  - Solution is not optimal (same length as scramble)
+
+### Opportunities for Improvement
+
+This is where **you** come in! We're looking for contributions to improve the solver:
+
+- 🧠 **Better Algorithms**: Refined IDA* with improved heuristics, Kociemba's algorithm, pattern databases
+- 🤖 **ML Approaches**: Machine learning-based solving strategies
+- ⚡ **Performance**: Web Workers, optimized state encoding, better memory management
+- 📊 **Heuristics**: Better distance estimation functions
 
 ### Contributing Solvers
 
@@ -76,7 +102,7 @@ The project currently implements a **BFS (Breadth-First Search)** and **IDA* (It
 - **Optimized State Encoding**: More efficient state representation
 - **Web Workers**: Offload computation to prevent UI blocking
 
-The solver code is in `script.js` - look for the `bfsSolve()` and `idaStarSearch()` functions.
+The current solver code is in `script.js` - look for the `solve()` function. The reverse-scramble approach tracks moves in `STATE.memoryStack` and reverses them.
 
 ## Project Structure
 
