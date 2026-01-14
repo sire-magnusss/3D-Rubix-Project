@@ -197,6 +197,17 @@ function forceVisualSync() {
 // --- ANIMATION ---
 let currentMove = null;
 let progress = 0;
+let lastTime = 0;
+const ANIMATION_DURATION = 0.4; // seconds per rotation
+
+// Smooth easing functions
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+}
 
 function processQueue() {
     if (!moveQueue.length) {
@@ -211,12 +222,17 @@ function processQueue() {
         return;
     }
 
+    const currentTime = performance.now() / 1000; // Convert to seconds
+    const deltaTime = lastTime ? currentTime - lastTime : 0.016; // Default to ~60fps if first frame
+    lastTime = currentTime;
+
     if (!currentMove) {
         forceVisualSync();
         
         currentMove = moveQueue.shift();
         STATE.isAnimating = true;
         progress = 0;
+        lastTime = currentTime;
         document.getElementById('ai-state').innerText = "MOVING";
         document.getElementById('ai-state').style.color = "#00ff88";
 
@@ -230,9 +246,17 @@ function processQueue() {
         group.forEach(p => pivot.attach(p.mesh));
     }
 
-    const speed = CONFIG.animSpeed;
-    if (speed >= 1.5) progress = 1.1;
-    else progress += speed;
+    // Calculate speed multiplier based on CONFIG.animSpeed
+    // animSpeed 0.25 = normal speed, higher = faster
+    // Map slider value (1-20) to speed multiplier (0.1x to 10x)
+    const speedMultiplier = Math.max(0.1, CONFIG.animSpeed / 0.25);
+    const adjustedDuration = ANIMATION_DURATION / speedMultiplier;
+    
+    // Update progress based on deltaTime for smooth frame-rate independent animation
+    progress += deltaTime / adjustedDuration;
+    
+    // Clamp progress
+    if (progress >= 1.0) progress = 1.0;
 
     if (progress >= 1.0) {
         // Finish Move
@@ -247,12 +271,18 @@ function processQueue() {
         forceVisualSync();
 
         currentMove = null;
+        progress = 0;
     } else {
-        // Animate Move
+        // Animate Move with smooth easing
         const axisVec = new THREE.Vector3();
         axisVec[currentMove.axis] = 1;
+        
+        // Apply easing for smooth acceleration and deceleration
+        const easedProgress = easeInOutCubic(progress);
+        const rotationAngle = currentMove.dir * easedProgress * (Math.PI / 2);
+        
         pivot.rotation.set(0,0,0);
-        pivot.rotateOnAxis(axisVec, currentMove.dir * progress);
+        pivot.rotateOnAxis(axisVec, rotationAngle);
     }
 }
 
@@ -369,9 +399,9 @@ function setupUI() {
     document.getElementById('speed-slider').addEventListener('input', e => {
         let val = parseInt(e.target.value);
         document.getElementById('speed-val').innerText = val;
-        if (val <= 5) CONFIG.animSpeed = val * 0.02; 
-        else if (val <= 15) CONFIG.animSpeed = (val - 5) * 0.05 + 0.1;
-        else CONFIG.animSpeed = 2.0;
+        // Map slider (1-20) to speed multiplier (0.1x to 10x)
+        // This gives smooth control: 1 = very slow, 10 = normal, 20 = very fast
+        CONFIG.animSpeed = (val / 10) * 0.25;
     });
     document.getElementById('puzzle-type').addEventListener('change', e => {
         const val = e.target.value;
