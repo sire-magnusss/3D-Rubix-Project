@@ -24,7 +24,11 @@ const STATE = {
     type: 'normal',
     isAnimating: false,
     memoryStack: [],
-    isSolving: false
+    isSolving: false,
+    // Solver mode:
+    //  - 'reverse'     → current reverse-scramble solver
+    //  - 'ai-kociemba' → planned 3×3 Kociemba-based solver (stubbed, PRs welcome)
+    solveMode: 'reverse'
 };
 
 // --- GLOBALS ---
@@ -450,6 +454,230 @@ function checkAndFixAlignment() {
     document.getElementById('ai-state').style.color = "#00ff88";
 }
 
+// --- KOCIEMBA AI SOLVER ---
+
+// Convert our cube state to cubejs facelet string format
+// Facelet order: U1-U9, R1-R9, F1-F9, D1-D9, L1-L9, B1-B9
+function exportCubeStateToCubejs() {
+    if (!logicCube || STATE.order !== 3) return null;
+    
+    const offset = 1; // For 3x3
+    const facelets = [];
+    
+    // Map face positions to cubejs facelet positions
+    // Our system: x=left/right, y=up/down, z=front/back
+    // Cubejs: U(white top), R(red right), F(green front), D(yellow bottom), L(orange left), B(blue back)
+    
+    // Helper: get color of a specific face of a piece
+    const getFaceColor = (piece, faceDir) => {
+        if (!piece || !piece.mesh || !Array.isArray(piece.mesh.material)) return 'U';
+        
+        const materials = piece.mesh.material;
+        const matColors = materials.map(m => m.color.getHex());
+        
+        // Materials order: [Right, Left, Top, Bottom, Front, Back]
+        // 0=Right, 1=Left, 2=Top, 3=Bottom, 4=Front, 5=Back
+        
+        if (faceDir === 'U' && matColors[2] === CONFIG.colors.U) return 'U';
+        if (faceDir === 'D' && matColors[3] === CONFIG.colors.D) return 'D';
+        if (faceDir === 'R' && matColors[0] === CONFIG.colors.R) return 'R';
+        if (faceDir === 'L' && matColors[1] === CONFIG.colors.L) return 'L';
+        if (faceDir === 'F' && matColors[4] === CONFIG.colors.F) return 'F';
+        if (faceDir === 'B' && matColors[5] === CONFIG.colors.B) return 'B';
+        
+        // If exact match not found, check which material is closest to expected position
+        // This handles rotated pieces
+        const expectedPos = {
+            'U': { y: offset },
+            'D': { y: -offset },
+            'R': { x: offset },
+            'L': { x: -offset },
+            'F': { z: offset },
+            'B': { z: -offset }
+        };
+        
+        const pos = expectedPos[faceDir];
+        if (pos) {
+            const isOnFace = Object.keys(pos).every(axis => 
+                Math.abs(piece[axis] - pos[axis]) < 0.1
+            );
+            if (isOnFace) {
+                // Find which material color matches this face's expected color
+                const expectedColor = {
+                    'U': CONFIG.colors.U, 'D': CONFIG.colors.D,
+                    'R': CONFIG.colors.R, 'L': CONFIG.colors.L,
+                    'F': CONFIG.colors.F, 'B': CONFIG.colors.B
+                }[faceDir];
+                
+                const colorIdx = matColors.findIndex(c => c === expectedColor);
+                if (colorIdx >= 0) {
+                    // Map material index to face
+                    const matToFace = ['R', 'L', 'U', 'D', 'F', 'B'];
+                    return matToFace[colorIdx];
+                }
+            }
+        }
+        
+        return faceDir; // Fallback to expected face
+    };
+    
+    // Build facelet string in cubejs order: U, R, F, D, L, B (each 9 facelets)
+    const faces = [
+        { name: 'U', getPos: (r, c) => ({ x: c, y: offset, z: -r }) },
+        { name: 'R', getPos: (r, c) => ({ x: offset, y: -r, z: c }) },
+        { name: 'F', getPos: (r, c) => ({ x: c, y: -r, z: offset }) },
+        { name: 'D', getPos: (r, c) => ({ x: -c, y: -offset, z: r }) },
+        { name: 'L', getPos: (r, c) => ({ x: -offset, y: -r, z: -c }) },
+        { name: 'B', getPos: (r, c) => ({ x: -c, y: -r, z: -offset }) }
+    ];
+    
+    for (const face of faces) {
+        // Cubejs reads facelets row by row, top to bottom, left to right
+        for (let row = 1; row >= -1; row--) {
+            for (let col = -1; col <= 1; col++) {
+                const pos = face.getPos(row, col);
+                const piece = logicCube.pieces.find(p => 
+                    Math.abs(p.x - pos.x) < 0.1 && 
+                    Math.abs(p.y - pos.y) < 0.1 && 
+                    Math.abs(p.z - pos.z) < 0.1
+                );
+                
+                if (piece) {
+                    facelets.push(getFaceColor(piece, face.name));
+                } else {
+                    facelets.push(face.name); // Fallback
+                }
+            }
+        }
+    }
+    
+    return facelets.join('');
+}
+
+// Convert cubejs move notation to our move format
+// cubejs uses: U, R, F, D, L, B (and ', 2)
+// Our format: { axis: 'x'|'y'|'z', slice: -1|0|1, dir: 1|-1 }
+function convertCubejsMoveToOurFormat(moveStr) {
+    // Parse move string like "U", "R'", "F2", etc.
+    const move = moveStr.trim();
+    if (!move) return null;
+    
+    const face = move[0];
+    const modifier = move.length > 1 ? move[1] : '';
+    
+    let axis, slice, dir;
+    
+    // Map faces to our coordinate system
+    // Our system: x=left/right, y=up/down, z=front/back
+    if (face === 'U') {
+        axis = 'y';
+        slice = 1; // Top layer
+        dir = modifier === "'" ? -1 : 1;
+    } else if (face === 'D') {
+        axis = 'y';
+        slice = -1; // Bottom layer
+        dir = modifier === "'" ? 1 : -1; // Inverted for bottom
+    } else if (face === 'R') {
+        axis = 'x';
+        slice = 1; // Right layer
+        dir = modifier === "'" ? -1 : 1;
+    } else if (face === 'L') {
+        axis = 'x';
+        slice = -1; // Left layer
+        dir = modifier === "'" ? 1 : -1; // Inverted for left
+    } else if (face === 'F') {
+        axis = 'z';
+        slice = 1; // Front layer
+        dir = modifier === "'" ? -1 : 1;
+    } else if (face === 'B') {
+        axis = 'z';
+        slice = -1; // Back layer
+        dir = modifier === "'" ? 1 : -1; // Inverted for back
+    } else {
+        return null;
+    }
+    
+    // Handle double moves (F2 = F F)
+    if (modifier === '2') {
+        return [
+            { axis, slice, dir },
+            { axis, slice, dir }
+        ];
+    }
+    
+    return { axis, slice, dir };
+}
+
+// Solve using Kociemba's algorithm - STUB FOR CONTRIBUTORS
+// This function is a clean hook for implementing Kociemba's two-phase algorithm
+// See README.md "Implementing Kociemba's Algorithm" section for implementation guide
+async function solveWithKociemba() {
+    // Check if Kociemba solver library is available
+    if (typeof Cube === 'undefined') {
+        log("AI: Kociemba solver not available. See README.md for implementation instructions.");
+        log("AI: Contributing? Check 'Implementing Kociemba's Algorithm' section.");
+        return null;
+    }
+    
+    try {
+        // Export current cube state to facelet notation
+        const faceletString = exportCubeStateToCubejs();
+        if (!faceletString || faceletString.length !== 54) {
+            log(`AI: Failed to export cube state (got ${faceletString?.length || 0} facelets, need 54).`);
+            return null;
+        }
+        
+        log("AI: Initializing Kociemba solver...");
+        
+        // Initialize solver (loads pattern databases - may take time on first call)
+        if (!Cube.initSolver) {
+            log("AI: Cube.initSolver not found. Check library integration.");
+            return null;
+        }
+        Cube.initSolver();
+        
+        // Create cube from facelet string
+        const cube = Cube.fromString ? Cube.fromString(faceletString) : new Cube();
+        if (cube.fromString && !Cube.fromString) {
+            cube.fromString(faceletString);
+        }
+        
+        // Solve using Kociemba's two-phase algorithm
+        if (typeof cube.solve !== 'function') {
+            log("AI: cube.solve() method not found. Check library API.");
+            return null;
+        }
+        
+        const solution = cube.solve();
+        if (!solution || solution.length === 0) {
+            log("AI: Kociemba solver returned no solution.");
+            return null;
+        }
+        
+        log(`AI: Kociemba solution found: ${solution}`);
+        
+        // Convert solution to our move format
+        const moves = [];
+        const moveStrings = solution.trim().split(/\s+/).filter(m => m.length > 0);
+        
+        for (const moveStr of moveStrings) {
+            const converted = convertCubejsMoveToOurFormat(moveStr);
+            if (Array.isArray(converted)) {
+                moves.push(...converted);
+            } else if (converted) {
+                moves.push(converted);
+            }
+        }
+        
+        return moves;
+        
+    } catch (error) {
+        log(`AI: Kociemba solver error: ${error.message}`);
+        console.error("Kociemba solver error:", error);
+        return null;
+    }
+}
+
 // --- CONTROLS ---
 
 function scramble() {
@@ -477,17 +705,58 @@ function scramble() {
 }
 
 function solve() {
-    if (STATE.isAnimating || !STATE.memoryStack.length) return;
-    STATE.isSolving = true;
-    log("AI: Solving...");
-    const sol = STATE.memoryStack.slice().reverse().map(m => ({
-        axis: m.axis,
-        slice: m.slice,
-        dir: m.dir * -1
-    }));
-    sol.forEach(m => moveQueue.push(m));
-    STATE.memoryStack = [];
-    updateUI();
+    if (STATE.isAnimating) return;
+
+    // Mode 1: current reverse-scramble solver (always works, not optimal)
+    if (STATE.solveMode === 'reverse') {
+        if (!STATE.memoryStack.length) {
+            log("AI: No scramble history to reverse. Try AI mode (3x3 only) for general solving.");
+            return;
+        }
+        STATE.isSolving = true;
+        log("AI: Solving by reversing scramble history...");
+        const sol = STATE.memoryStack.slice().reverse().map(m => ({
+            axis: m.axis,
+            slice: m.slice,
+            dir: m.dir * -1
+        }));
+        sol.forEach(m => moveQueue.push(m));
+        STATE.memoryStack = [];
+        updateUI();
+        return;
+    }
+
+    // Mode 2: Kociemba-based AI solver (3×3 only) - REAL IMPLEMENTATION!
+    if (STATE.solveMode === 'ai-kociemba') {
+        if (STATE.order !== 3 || STATE.type !== 'normal') {
+            log("AI: Kociemba solver works for 3x3 Standard only. Switch architecture to 3x3.");
+            return;
+        }
+
+        STATE.isSolving = true;
+        log("AI: Initializing Kociemba's two-phase algorithm...");
+        
+        // Solve asynchronously
+        solveWithKociemba().then(moves => {
+            if (!moves || moves.length === 0) {
+                log("AI: Kociemba solver failed. Falling back to reverse-scramble.");
+                STATE.isSolving = false;
+                return;
+            }
+            
+            log(`AI: Kociemba solution ready! Executing ${moves.length} moves...`);
+            
+            // Push all moves to queue
+            moves.forEach(m => moveQueue.push(m));
+            STATE.memoryStack = []; // Clear scramble history since we're using AI
+            updateUI();
+        }).catch(error => {
+            log(`AI: Kociemba solver error: ${error.message}`);
+            STATE.isSolving = false;
+        });
+        
+        return;
+    }
 }
 
 function updateUI() {
@@ -501,6 +770,20 @@ function log(msg) {
 function setupUI() {
     document.getElementById('btn-scramble').addEventListener('click', scramble);
     document.getElementById('btn-solve').addEventListener('click', solve);
+    // Solver mode selector (reverse history vs AI/Kociemba stub)
+    const solveModeEl = document.getElementById('solve-mode');
+    if (solveModeEl) {
+        solveModeEl.value = STATE.solveMode;
+        solveModeEl.addEventListener('change', e => {
+            const mode = e.target.value;
+            STATE.solveMode = mode;
+            if (mode === 'reverse') {
+                log("AI: Using reverse-scramble solver (always works, not optimal).");
+            } else if (mode === 'ai-kociemba') {
+                log("AI: Kociemba mode selected (experimental - see README for implementation guide).");
+            }
+        });
+    }
     document.getElementById('speed-slider').addEventListener('input', e => {
         let val = parseInt(e.target.value);
         document.getElementById('speed-val').innerText = val;

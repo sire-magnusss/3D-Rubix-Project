@@ -104,6 +104,66 @@ This is where **you** come in! We're looking for contributions to improve the so
 
 The current solver code is in `script.js` - look for the `solve()` function. The reverse-scramble approach tracks moves in `STATE.memoryStack` and reverses them.
 
+## Implementing Kociemba's Algorithm
+
+The project includes a **clean hook** for implementing Kociemba's two-phase algorithm, but the actual solver library needs to be integrated. Here's how to do it:
+
+### Step 1: Get the cubejs Library
+
+The recommended library is [cubejs by ldez](https://github.com/ldez/cubejs), which implements Kociemba's algorithm.
+
+**Option A: Download and include locally (Recommended)**
+1. Download `cube.js` from the [cubejs GitHub repository](https://github.com/ldez/cubejs)
+2. Place it in your project directory
+3. Add to `index.html`:
+   ```html
+   <script src="cube.js"></script>
+   ```
+
+**Option B: Use CDN (if available)**
+```html
+<script src="https://cdn.jsdelivr.net/npm/cubejs@1.2.0/lib/cube.js"></script>
+```
+
+### Step 2: Verify Integration
+
+The library should expose a global `Cube` class with:
+- `Cube.initSolver()` - Initialize the solver (call once, may take a few seconds)
+- `Cube.fromString(faceletString)` - Create cube from facelet notation
+- `cube.solve()` - Solve the cube, returns move sequence string
+
+### Step 3: Test the Implementation
+
+1. Select "AI: Kociemba Algorithm" in the Solve Strategy dropdown
+2. Scramble a 3×3 cube
+3. Click "Auto-Solve"
+4. The `solveWithKociemba()` function in `script.js` will:
+   - Export your cube state to facelet notation (already implemented)
+   - Call the cubejs library to solve
+   - Convert the solution back to your move format (already implemented)
+
+### Implementation Details
+
+The hook is in `script.js` at the `solveWithKociemba()` function. It:
+- ✅ Exports cube state to facelet string (`exportCubeStateToCubejs()`)
+- ✅ Converts cubejs moves to your format (`convertCubejsMoveToOurFormat()`)
+- ⚠️ Needs: `Cube` class from cubejs library to be available globally
+
+### Troubleshooting
+
+- **"Cube class not found"**: Library not loaded. Check script tag in HTML.
+- **"Cube.initSolver not found"**: Wrong library version or different API.
+- **"cube.solve() not a function"**: Check cubejs API documentation for correct usage.
+
+### Alternative Libraries
+
+If cubejs doesn't work for you, you can implement using:
+- [rubiks-cube-solver](https://www.npmjs.com/package/rubiks-cube-solver)
+- [cube-solver](https://www.npmjs.com/package/cube-solver)
+- Or implement Kociemba's algorithm from scratch (see [algorithm details](http://kociemba.org/cube.htm))
+
+**Contributions welcome!** If you successfully integrate Kociemba's algorithm, please submit a PR! 🎉
+
 ## Project Structure
 
 ```

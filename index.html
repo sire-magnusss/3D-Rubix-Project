@@ -37,6 +37,14 @@
                 </div>
             </div>
 
+            <div class="section">
+                <label>Solve Strategy</label>
+                <select id="solve-mode">
+                    <option value="reverse" selected>Reverse History (Fast, Always Works)</option>
+                    <option value="ai-kociemba">AI: Kociemba (3×3, Experimental - Needs Implementation)</option>
+                </select>
+            </div>
+
             <div class="stats-grid">
                 <div class="stat-box">
                     <span class="stat-label">Moves</span>
@@ -65,6 +73,9 @@
 
     <div id="viewport"></div>
 
+    <!-- Kociemba Algorithm Library - To be added by contributors -->
+    <!-- See README.md "Implementing Kociemba's Algorithm" section for instructions -->
+    
     <script type="importmap">
         {
             "imports": {
