@@ -136,11 +136,22 @@ This project is open source and available for educational purposes.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to:
-- Report bugs
-- Suggest improvements
-- Submit pull requests
-- Implement better solving algorithms
+Contributions are welcome! 🎉
+
+We'd love your help improving NeuralCube! Please see our [Contributing Guide](CONTRIBUTING.md) for details on:
+
+- How to set up your development environment
+- Our coding standards and conventions
+- How to submit pull requests
+- Areas where we need help
+
+**Quick Start:**
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Submit a pull request
+
+For detailed guidelines, please read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
