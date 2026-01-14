@@ -409,9 +409,9 @@ function validateAndHeal() {
         }
 
         if (isBroken) {
-            log("AI: Integrity Failed. Executing Quantum Repair.");
+            log("AI: Integrity Failed. Resetting to solved state.");
             logicCube.forceReset();
-            forceVisualSync(); // Will correctly align everything
+            forceVisualSync();
             STATE.isSolving = false;
             document.getElementById('ai-state').innerText = "REPAIRED";
             document.getElementById('ai-state').style.color = "#00ff88";
