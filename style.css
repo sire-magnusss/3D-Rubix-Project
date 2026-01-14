@@ -23,15 +23,19 @@ body {
     width: 100vw;
     height: 100vh;
     background: radial-gradient(circle at center, #3a3a3a 0%, #2a2a2a 100%);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1;
 }
 
 #interface {
     position: absolute;
     top: 10px;
     left: 10px;
-    right: 10px;
     z-index: 10;
-    max-width: 400px;
+    max-width: 300px;
+    width: auto;
 }
 
 .panel {
@@ -272,16 +276,21 @@ input[type=range]::-moz-range-thumb {
 /* Mobile Responsive Styles */
 @media (max-width: 768px) {
     #interface {
-        top: 5px;
-        left: 5px;
-        right: 5px;
-        max-width: 100%;
+        top: auto;
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        max-width: calc(100% - 20px);
+        width: auto;
     }
     
     .panel {
         max-width: 100%;
+        width: 100%;
         padding: 12px;
         border-radius: 6px;
+        max-height: 50vh;
+        overflow-y: auto;
     }
     
     .panel-header {
@@ -298,110 +307,140 @@ input[type=range]::-moz-range-thumb {
     }
     
     .section {
-        margin-bottom: 15px;
+        margin-bottom: 12px;
     }
     
     label {
-        font-size: 0.65rem;
-        margin-bottom: 6px;
+        font-size: 0.6rem;
+        margin-bottom: 5px;
     }
     
     select, input[type=range] {
-        padding: 10px;
-        font-size: 0.9rem;
+        padding: 8px;
+        font-size: 0.85rem;
     }
     
     .btn {
-        padding: 14px;
-        font-size: 0.9rem;
+        padding: 10px;
+        font-size: 0.85rem;
     }
     
     .stats-grid {
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
+        margin-bottom: 12px;
     }
     
     .stat-box {
-        min-width: calc(50% - 4px);
-        padding: 8px;
+        min-width: calc(33.333% - 4px);
+        padding: 6px;
     }
     
     .stat-label {
-        font-size: 0.55rem;
+        font-size: 0.5rem;
     }
     
     .stat-value {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
     
     .terminal {
         border-radius: 4px;
+        display: none; /* Hide terminal on mobile to save space */
     }
     
     .console {
-        height: 80px;
-        padding: 6px;
-        font-size: 0.65rem;
+        height: 50px;
+        padding: 5px;
+        font-size: 0.6rem;
     }
     
     .terminal-bar {
         padding: 3px 6px;
         font-size: 0.55rem;
     }
+    
+    /* Ensure viewport is always visible */
+    #viewport {
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
+    }
 }
 
 @media (max-width: 480px) {
     #interface {
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: auto;
-        max-height: 100vh;
-        overflow-y: auto;
+        top: auto;
+        bottom: 5px;
+        left: 5px;
+        right: 5px;
+        max-width: calc(100% - 10px);
     }
     
     .panel {
-        border-radius: 0;
-        padding: 10px;
-        max-height: calc(100vh - 10px);
+        border-radius: 6px;
+        padding: 8px;
+        max-height: 40vh;
         overflow-y: auto;
     }
     
     .panel-header {
-        margin-bottom: 12px;
-        padding-bottom: 10px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
     }
     
     h1 {
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
     
     .section {
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     
     .btn-group {
-        flex-direction: column;
-        gap: 8px;
+        flex-direction: row;
+        gap: 6px;
     }
     
     .btn {
-        padding: 12px;
-        width: 100%;
+        padding: 10px 8px;
+        font-size: 0.8rem;
     }
     
     .stats-grid {
-        flex-direction: column;
+        flex-direction: row;
+        gap: 4px;
     }
     
     .stat-box {
-        width: 100%;
-        min-width: 100%;
+        flex: 1;
+        min-width: auto;
+        padding: 5px;
     }
     
-    .console {
-        height: 60px;
-        font-size: 0.6rem;
+    .stat-label {
+        font-size: 0.45rem;
+    }
+    
+    .stat-value {
+        font-size: 0.8rem;
+    }
+    
+    .terminal {
+        display: none; /* Hide terminal on very small screens */
+    }
+    
+    /* Ensure viewport is always visible on small screens */
+    #viewport {
+        width: 100vw !important;
+        height: 100vh !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 1;
     }
 }
 
