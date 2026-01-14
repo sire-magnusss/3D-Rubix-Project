@@ -28,7 +28,11 @@ const STATE = {
     // Solver mode:
     //  - 'reverse'     → current reverse-scramble solver
     //  - 'ai-kociemba' → planned 3×3 Kociemba-based solver (stubbed, PRs welcome)
-    solveMode: 'reverse'
+    solveMode: 'reverse',
+    // Timing
+    isTiming: false,
+    solveStartTime: 0,
+    solveElapsed: 0
 };
 
 // --- GLOBALS ---
@@ -327,6 +331,13 @@ function processQueue() {
             
             forceVisualSync();
             validateAndHeal();
+
+            // Stop timer when solving completes
+            if (STATE.isTiming) {
+                STATE.solveElapsed = (performance.now() - STATE.solveStartTime) / 1000;
+                STATE.isTiming = false;
+                updateTimerUI(STATE.solveElapsed);
+            }
         }
         return;
     }
@@ -685,6 +696,11 @@ function scramble() {
     if (moveQueue.length > 0) return;
 
     STATE.isSolving = false;
+    // Reset timer
+    STATE.isTiming = false;
+    STATE.solveElapsed = 0;
+    updateTimerUI(0);
+    
     const moves = 20;
     const axes = ['x','y','z'];
     const range = (STATE.order - 1) / 2;
@@ -715,6 +731,11 @@ function solve() {
         }
         STATE.isSolving = true;
         log("AI: Solving by reversing scramble history...");
+        // Start timer
+        STATE.isTiming = true;
+        STATE.solveStartTime = performance.now();
+        STATE.solveElapsed = 0;
+        updateTimerUI(0);
         const sol = STATE.memoryStack.slice().reverse().map(m => ({
             axis: m.axis,
             slice: m.slice,
@@ -735,6 +756,11 @@ function solve() {
 
         STATE.isSolving = true;
         log("AI: Initializing Kociemba's two-phase algorithm...");
+        // Start timer
+        STATE.isTiming = true;
+        STATE.solveStartTime = performance.now();
+        STATE.solveElapsed = 0;
+        updateTimerUI(0);
         
         // Solve asynchronously
         solveWithKociemba().then(moves => {
@@ -761,6 +787,15 @@ function solve() {
 
 function updateUI() {
     document.getElementById('stack-count').innerText = STATE.memoryStack.length;
+}
+
+function updateTimerUI(elapsedSeconds) {
+    const el = document.getElementById('solve-time');
+    if (!el) return;
+    const val = typeof elapsedSeconds === 'number'
+        ? elapsedSeconds
+        : STATE.solveElapsed;
+    el.innerText = `${val.toFixed(2)}s`;
 }
 function log(msg) {
     const d = document.createElement('div');
@@ -805,6 +840,13 @@ function setupUI() {
 function animate() {
     controls.update();
     processQueue();
+    
+    // Update timer in real-time if solving
+    if (STATE.isTiming) {
+        STATE.solveElapsed = (performance.now() - STATE.solveStartTime) / 1000;
+        updateTimerUI(STATE.solveElapsed);
+    }
+    
     renderer.render(scene, camera);
 }
 

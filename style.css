@@ -186,6 +186,12 @@ input[type=range]::-moz-range-thumb {
     border: 1px solid var(--border);
 }
 
+.stat-box-accent {
+    background: radial-gradient(circle at top, rgba(125, 79, 255, 0.25), #151515);
+    border-color: var(--primary);
+    box-shadow: 0 0 20px rgba(125, 79, 255, 0.3);
+}
+
 .stat-label {
     display: block;
     font-size: 0.6rem;
@@ -198,6 +204,11 @@ input[type=range]::-moz-range-thumb {
     font-size: 1.1rem;
     font-weight: bold;
     color: var(--primary);
+}
+
+#solve-time {
+    font-feature-settings: "tnum" 1;
+    letter-spacing: 0.03em;
 }
 
 .terminal {
