@@ -14,6 +14,9 @@ body {
     background: var(--bg);
     font-family: 'Inter', system-ui, sans-serif;
     color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: none; /* Prevent default touch behaviors for better 3D interaction */
 }
 
 #viewport {
@@ -24,17 +27,20 @@ body {
 
 #interface {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: 10px;
+    left: 10px;
+    right: 10px;
     z-index: 10;
+    max-width: 400px;
 }
 
 .panel {
-    width: 300px;
+    width: 100%;
+    max-width: 300px;
     background: rgba(10, 10, 10, 0.95);
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 20px;
+    padding: 15px;
     box-shadow: 0 20px 50px rgba(0,0,0,0.8);
     backdrop-filter: blur(10px);
 }
@@ -261,4 +267,153 @@ input[type=range]::-moz-range-thumb {
 
 ::-webkit-scrollbar-track {
     background: #000;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+    #interface {
+        top: 5px;
+        left: 5px;
+        right: 5px;
+        max-width: 100%;
+    }
+    
+    .panel {
+        max-width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+    }
+    
+    .panel-header {
+        margin-bottom: 15px;
+        padding-bottom: 12px;
+    }
+    
+    h1 {
+        font-size: 1rem;
+    }
+    
+    .system-status {
+        font-size: 0.65rem;
+    }
+    
+    .section {
+        margin-bottom: 15px;
+    }
+    
+    label {
+        font-size: 0.65rem;
+        margin-bottom: 6px;
+    }
+    
+    select, input[type=range] {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+    
+    .btn {
+        padding: 14px;
+        font-size: 0.9rem;
+    }
+    
+    .stats-grid {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .stat-box {
+        min-width: calc(50% - 4px);
+        padding: 8px;
+    }
+    
+    .stat-label {
+        font-size: 0.55rem;
+    }
+    
+    .stat-value {
+        font-size: 1rem;
+    }
+    
+    .terminal {
+        border-radius: 4px;
+    }
+    
+    .console {
+        height: 80px;
+        padding: 6px;
+        font-size: 0.65rem;
+    }
+    
+    .terminal-bar {
+        padding: 3px 6px;
+        font-size: 0.55rem;
+    }
+}
+
+@media (max-width: 480px) {
+    #interface {
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: auto;
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+    
+    .panel {
+        border-radius: 0;
+        padding: 10px;
+        max-height: calc(100vh - 10px);
+        overflow-y: auto;
+    }
+    
+    .panel-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+    
+    h1 {
+        font-size: 0.9rem;
+    }
+    
+    .section {
+        margin-bottom: 12px;
+    }
+    
+    .btn-group {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .btn {
+        padding: 12px;
+        width: 100%;
+    }
+    
+    .stats-grid {
+        flex-direction: column;
+    }
+    
+    .stat-box {
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .console {
+        height: 60px;
+        font-size: 0.6rem;
+    }
+}
+
+/* Prevent text selection on mobile for better UX */
+@media (max-width: 768px) {
+    .btn, select, input {
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        user-select: none;
+    }
+    
+    .btn:active {
+        opacity: 0.8;
+    }
 }

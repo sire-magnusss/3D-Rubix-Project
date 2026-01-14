@@ -54,18 +54,32 @@ function init() {
     scene.add(pivot);
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
-    camera.position.set(6, 6, 8);
+    
+    // Adjust camera position for mobile devices
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        camera.position.set(7, 7, 9); // Slightly further back for mobile
+    } else {
+        camera.position.set(6, 6, 8);
+    }
     camera.lookAt(0,0,0);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for performance
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.enablePan = false; // Disable panning for cleaner mobile experience
+    controls.minDistance = 5;
+    controls.maxDistance = 15;
+    controls.touches = {
+        ONE: THREE.TOUCH.ROTATE,
+        TWO: THREE.TOUCH.DOLLY_PAN
+    };
 
     // Enhanced lighting setup for realistic look
     const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -837,9 +851,19 @@ function setupUI() {
         else buildPuzzle(parseInt(val), 'normal');
     });
     window.addEventListener('resize', () => {
+        const isMobile = window.innerWidth <= 768;
         camera.aspect = window.innerWidth/window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        
+        // Adjust camera position on resize for mobile
+        if (isMobile) {
+            camera.position.set(7, 7, 9);
+        } else {
+            camera.position.set(6, 6, 8);
+        }
+        camera.lookAt(0,0,0);
+        controls.update();
     });
 }
 function animate() {
