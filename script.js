@@ -1,13 +1,20 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 
 // --- CONFIGURATION ---
 const CONFIG = {
     colors: {
-        R: 0xb90000, L: 0xff5900, U: 0xffffff, D: 0xffd500, F: 0x009b48, B: 0x0045ad, CORE: 0x111111
+        R: 0xdc143c,      // Realistic red (slightly brighter)
+        L: 0xff6600,      // Realistic orange
+        U: 0xffffff,       // White
+        D: 0xffd700,       // Realistic yellow (slightly warmer)
+        F: 0x00a651,      // Realistic green (slightly brighter)
+        B: 0x0066cc,       // Realistic blue
+        CORE: 0x0a0a0a    // Deep black for plastic
     },
-    spacing: 1.08, // Increased spacing for realistic gaps
-    cubeletSize: 0.92, // Slightly smaller cubelets to show gaps
+    spacing: 1.08, // Increased spacing for realistic gaps between cubelets
+    cubeletSize: 0.92, // Slightly smaller cubelets to show gaps (like real Rubik's cube)
     animSpeed: 0.25
 };
 
@@ -176,63 +183,81 @@ function buildPuzzle(order, type) {
     allCubelets = [];
 
     logicCube = new VirtualCube(order, type);
-    const geom = new THREE.BoxGeometry(1, 1, 1);
+    
+    // Create realistic beveled cube geometry with rounded edges
+    const createRealisticCubelet = () => {
+        const size = CONFIG.cubeletSize;
+        const radius = 0.08; // Radius for rounded corners (realistic bevel)
+        const segments = 3; // Number of segments for smooth rounded edges
+        
+        // Use RoundedBoxGeometry for realistic beveled edges
+        return new RoundedBoxGeometry(size, size, size, segments, radius);
+    };
     
     logicCube.pieces.forEach(p => {
         const ox = p.ox, oy = p.oy, oz = p.oz;
         const offset = (order - 1) / 2;
 
-        // Create realistic materials with proper roughness and metalness
-        const createMaterial = (color) => {
+        // Create realistic black plastic material for cube body
+        const plasticMaterial = new THREE.MeshStandardMaterial({
+            color: 0x0a0a0a, // Deep black plastic like real Rubik's cube
+            roughness: 0.7,  // Semi-matte finish (realistic plastic)
+            metalness: 0.0,
+            flatShading: false
+        });
+
+        // Create realistic sticker materials - vibrant colors with glossy finish
+        const createStickerMaterial = (color) => {
             return new THREE.MeshStandardMaterial({
                 color: color,
-                roughness: 0.3,  // Slight shine like real plastic
-                metalness: 0.0,  // Non-metallic
-                flatShading: false,
-                envMapIntensity: 0.5
+                roughness: 0.15,  // Glossy sticker finish (like real vinyl stickers)
+                metalness: 0.0,
+                flatShading: false
             });
         };
 
-        const materials = [
-            createMaterial(ox === offset ? CONFIG.colors.R : CONFIG.colors.CORE),
-            createMaterial(ox === -offset ? CONFIG.colors.L : CONFIG.colors.CORE),
-            createMaterial(oy === offset ? CONFIG.colors.U : CONFIG.colors.CORE),
-            createMaterial(oy === -offset ? CONFIG.colors.D : CONFIG.colors.CORE),
-            createMaterial(oz === offset ? CONFIG.colors.F : CONFIG.colors.CORE),
-            createMaterial(oz === -offset ? CONFIG.colors.B : CONFIG.colors.CORE),
-        ];
+        // Determine which faces have colored stickers
+        const hasStickerRight = ox === offset;
+        const hasStickerLeft = ox === -offset;
+        const hasStickerTop = oy === offset;
+        const hasStickerBottom = oy === -offset;
+        const hasStickerFront = oz === offset;
+        const hasStickerBack = oz === -offset;
 
-        // Make core pieces darker and less reflective
-        if (materials[0].color.getHex() === CONFIG.colors.CORE) {
-            materials.forEach(m => {
-                m.roughness = 0.7;
-                m.color.multiplyScalar(0.3);
-            });
-        }
+        // Create materials array: [Right, Left, Top, Bottom, Front, Back]
+        const materials = [
+            hasStickerRight ? createStickerMaterial(CONFIG.colors.R) : plasticMaterial.clone(),
+            hasStickerLeft ? createStickerMaterial(CONFIG.colors.L) : plasticMaterial.clone(),
+            hasStickerTop ? createStickerMaterial(CONFIG.colors.U) : plasticMaterial.clone(),
+            hasStickerBottom ? createStickerMaterial(CONFIG.colors.D) : plasticMaterial.clone(),
+            hasStickerFront ? createStickerMaterial(CONFIG.colors.F) : plasticMaterial.clone(),
+            hasStickerBack ? createStickerMaterial(CONFIG.colors.B) : plasticMaterial.clone(),
+        ];
 
         if (type === 'mirror') {
             materials.forEach(m => { 
-                m.color.setHex(0x333333); 
+                m.color.setHex(0x2a2a2a); 
                 m.roughness = 0.1;
-                m.metalness = 0.3;
+                m.metalness = 0.5;
             });
         }
 
+        // Create the main cubelet mesh with realistic beveled edges
+        const geom = createRealisticCubelet();
         const mesh = new THREE.Mesh(geom, materials);
+        
         if (type === 'mirror') mesh.scale.set(1 + ox*0.35, 1 + oy*0.35, 1 + oz*0.35);
 
-        // Add subtle black edges for realistic separation
+        // Add subtle black edge lines for definition (like real cube gaps)
+        const edgeGeometry = new THREE.EdgesGeometry(geom);
         const edgeMaterial = new THREE.LineBasicMaterial({ 
             color: 0x000000,
-            linewidth: 1
+            linewidth: 1.5
         });
-        const edges = new THREE.LineSegments(
-            new THREE.EdgesGeometry(geom),
-            edgeMaterial
-        );
+        const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
         mesh.add(edges);
 
-        // Enable shadows for realistic depth
+        // Enable shadows for realistic depth and lighting
         mesh.castShadow = true;
         mesh.receiveShadow = true;
 
