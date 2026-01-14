@@ -15,7 +15,9 @@ const CONFIG = {
     },
     spacing: 1.08, // Increased spacing for realistic gaps between cubelets
     cubeletSize: 0.92, // Slightly smaller cubelets to show gaps (like real Rubik's cube)
-    animSpeed: 0.25
+    animSpeed: 0.25,
+    // Production mode: set to true to minimize console output
+    production: window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
 };
 
 // --- STATE ---
@@ -684,7 +686,10 @@ async function solveWithKociemba() {
         
     } catch (error) {
         log(`AI: Kociemba solver error: ${error.message}`);
-        console.error("Kociemba solver error:", error);
+        // Only log to console in development
+        if (!CONFIG.production) {
+            console.error("Kociemba solver error:", error);
+        }
         return null;
     }
 }
