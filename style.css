@@ -383,6 +383,7 @@ input[type=range]::-moz-range-thumb {
     overflow: hidden;
     flex-shrink: 1; /* Allow terminal to shrink */
     min-height: 80px; /* Minimum height */
+    display: block; /* Always visible */
 }
 
 .terminal-bar {
@@ -524,13 +525,15 @@ input[type=range]::-moz-range-thumb {
     
     .terminal {
         border-radius: 4px;
-        display: none; /* Hide terminal on mobile to save space */
+        display: block; /* Show terminal on mobile, but compact */
+        margin-top: 8px;
     }
     
     .console {
-        height: 40px;
+        height: 60px; /* Compact but visible */
         padding: 4px;
         font-size: 0.55rem;
+        max-height: 60px;
     }
     
     .terminal-bar {
@@ -646,7 +649,15 @@ input[type=range]::-moz-range-thumb {
     }
     
     .terminal {
-        display: none; /* Hide terminal on very small screens */
+        display: block; /* Show terminal, but very compact */
+        margin-top: 6px;
+    }
+    
+    .console {
+        height: 50px; /* Very compact on small screens */
+        padding: 3px;
+        font-size: 0.5rem;
+        max-height: 50px;
     }
     
     /* Ensure viewport is always visible on small screens */
