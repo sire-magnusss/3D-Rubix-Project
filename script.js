@@ -15,38 +15,16 @@ const STATE = {
     order: 3,
     type: 'normal',
     isAnimating: false,
-    memoryStack: []
+    memoryStack: [],
+    isSolving: false
 };
 
 // --- GLOBALS ---
 let scene, camera, renderer, controls;
 let allCubelets = [];
 const moveQueue = [];
+let pivot = new THREE.Object3D(); 
 let logicCube = null;
-
-// --- DATABASE OF PERFECTION (24 Valid Rotations) ---
-// This prevents "Wrong Face" colors by locking rotation to known valid states.
-const VALID_QUATERNIONS = [];
-(function buildDatabase() {
-    const axes = [
-        new THREE.Vector3(1, 0, 0), new THREE.Vector3(-1, 0, 0),
-        new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -1, 0),
-        new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1)
-    ];
-    for (let fwd of axes) {
-        for (let up of axes) {
-            if (Math.abs(fwd.dot(up)) < 0.01) { 
-                const m = new THREE.Matrix4();
-                const right = new THREE.Vector3().crossVectors(up, fwd).normalize();
-                m.makeBasis(right, up, fwd);
-                const q = new THREE.Quaternion().setFromRotationMatrix(m);
-                let exists = false;
-                for(let vq of VALID_QUATERNIONS) if(vq.dot(q) > 0.99) exists = true;
-                if(!exists) VALID_QUATERNIONS.push(q);
-            }
-        }
-    }
-})();
 
 // --- INITIALIZATION ---
 function init() {
@@ -54,6 +32,7 @@ function init() {
     
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050505);
+    scene.add(pivot);
 
     camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
     camera.position.set(6, 6, 8);
@@ -88,61 +67,51 @@ class VirtualCube {
             for (let y = 0; y < order; y++) {
                 for (let z = 0; z < order; z++) {
                     this.pieces.push({
-                        // Logic State
+                        // Integers
                         x: x - offset, y: y - offset, z: z - offset,
-                        q: new THREE.Quaternion(), 
-                        
+                        // Vectors
+                        u: new THREE.Vector3(0, 1, 0),
+                        f: new THREE.Vector3(0, 0, 1),
                         // ID
                         ox: x - offset, oy: y - offset, oz: z - offset,
                         isCenter: (Math.abs(x-offset)+Math.abs(y-offset)+Math.abs(z-offset) === 1),
-                        
                         // Visual
-                        mesh: null,
-                        
-                        // Animation Buffers
-                        startPos: new THREE.Vector3(),
-                        startRot: new THREE.Quaternion(),
-                        targetPos: new THREE.Vector3(),
-                        targetRot: new THREE.Quaternion()
+                        mesh: null
                     });
                 }
             }
         }
     }
 
-    // Pre-calculate the destination before animation starts
-    calculateNextState(p, axis, dir) {
-        // 1. Position Rotation (Float -> Int)
-        const pos = new THREE.Vector3(p.x, p.y, p.z);
+    rotateLogic(axis, slice, dir) {
+        const eps = 0.1;
         const axisVec = new THREE.Vector3();
         axisVec[axis] = 1;
-        pos.applyAxisAngle(axisVec, dir * (Math.PI / 2));
-        
-        const nx = Math.round(pos.x * 2) / 2;
-        const ny = Math.round(pos.y * 2) / 2;
-        const nz = Math.round(pos.z * 2) / 2;
 
-        // 2. Rotation Calculation
-        const rotQ = new THREE.Quaternion().setFromAxisAngle(axisVec, dir * (Math.PI / 2));
-        const rawNextQ = p.q.clone().premultiply(rotQ).normalize();
+        this.pieces.forEach(p => {
+            if (Math.abs(p[axis] - slice) < eps) {
+                const pos = new THREE.Vector3(p.x, p.y, p.z);
+                pos.applyAxisAngle(axisVec, dir * (Math.PI / 2));
+                
+                p.x = Math.round(pos.x * 2) / 2;
+                p.y = Math.round(pos.y * 2) / 2;
+                p.z = Math.round(pos.z * 2) / 2;
 
-        // 3. QUANTUM SNAP (Fixes the "Wrong Face" bug)
-        // We find the mathematically perfect quaternion from our database.
-        let bestQ = rawNextQ;
-        let maxDot = -1;
-        for(let vq of VALID_QUATERNIONS) {
-            const dot = Math.abs(rawNextQ.dot(vq));
-            if(dot > maxDot) { maxDot = dot; bestQ = vq; }
-        }
-
-        return { x: nx, y: ny, z: nz, q: bestQ.clone() };
+                p.u.applyAxisAngle(axisVec, dir * (Math.PI / 2));
+                p.f.applyAxisAngle(axisVec, dir * (Math.PI / 2));
+                
+                p.u.x = Math.round(p.u.x); p.u.y = Math.round(p.u.y); p.u.z = Math.round(p.u.z);
+                p.f.x = Math.round(p.f.x); p.f.y = Math.round(p.f.y); p.f.z = Math.round(p.f.z);
+            }
+        });
     }
 
-    commitState(p, nextState) {
-        p.x = nextState.x;
-        p.y = nextState.y;
-        p.z = nextState.z;
-        p.q.copy(nextState.q);
+    forceReset() {
+        this.pieces.forEach(p => {
+            p.x = p.ox; p.y = p.oy; p.z = p.oz;
+            p.u.set(0, 1, 0);
+            p.f.set(0, 0, 1);
+        });
     }
 }
 
@@ -151,6 +120,9 @@ function buildPuzzle(order, type) {
     STATE.type = type;
     STATE.memoryStack = [];
     updateUI();
+
+    pivot.rotation.set(0,0,0);
+    while(pivot.children.length) scene.attach(pivot.children[0]);
 
     allCubelets.forEach(m => {
         scene.remove(m);
@@ -192,21 +164,39 @@ function buildPuzzle(order, type) {
     forceVisualSync();
 }
 
-// Teleport visuals to exact logic state
+// --- VISUAL SYNC (THE FIX) ---
+// This function ensures the mesh is NEVER stuck on a tilted pivot.
 function forceVisualSync() {
+    // 1. NUCLEAR DETACH: Force everything off the pivot into World Space
+    while(pivot.children.length > 0) {
+        scene.attach(pivot.children[0]);
+    }
+    
+    // 2. Reset Pivot to Neutral
+    pivot.rotation.set(0, 0, 0);
+    pivot.position.set(0, 0, 0);
+    pivot.updateMatrixWorld();
+
+    // 3. Teleport Meshes to Logic Grid
     const spacing = (STATE.type === 'mirror') ? 1.4 : CONFIG.spacing;
+    
     logicCube.pieces.forEach(p => {
-        p.mesh.position.set(p.x * spacing, p.y * spacing, p.z * spacing);
-        p.mesh.quaternion.copy(p.q);
-        p.mesh.updateMatrix();
-        p.mesh.updateMatrixWorld();
+        const m = p.mesh;
+        m.position.set(p.x * spacing, p.y * spacing, p.z * spacing);
+        
+        const mat = new THREE.Matrix4();
+        const right = new THREE.Vector3().crossVectors(p.u, p.f).normalize();
+        mat.makeBasis(right, p.u, p.f);
+        m.quaternion.setFromRotationMatrix(mat);
+        
+        m.updateMatrix();
+        m.updateMatrixWorld();
     });
 }
 
-// --- ANIMATION ENGINE (STATELESS ARC) ---
+// --- ANIMATION ---
 let currentMove = null;
 let progress = 0;
-let activeGroup = [];
 
 function processQueue() {
     if (!moveQueue.length) {
@@ -216,99 +206,113 @@ function processQueue() {
             document.getElementById('ai-state').style.color = "#666";
             
             forceVisualSync();
-            checkAndFixAlignment();
+            validateAndHeal();
         }
         return;
     }
 
     if (!currentMove) {
-        // --- START ---
-        forceVisualSync(); // Clean start
+        forceVisualSync();
         
         currentMove = moveQueue.shift();
         STATE.isAnimating = true;
         progress = 0;
-        document.getElementById('ai-state').innerText = "PROCESSING";
+        document.getElementById('ai-state').innerText = "MOVING";
         document.getElementById('ai-state').style.color = "#00ff88";
 
-        activeGroup = [];
         const eps = 0.1;
-        const spacing = (STATE.type === 'mirror') ? 1.4 : CONFIG.spacing;
+        const group = logicCube.pieces.filter(p => 
+            Math.abs(p[currentMove.axis] - currentMove.slice) < eps
+        );
 
-        logicCube.pieces.forEach(p => {
-            if (Math.abs(p[currentMove.axis] - currentMove.slice) < eps) {
-                // Snapshot Start
-                p.startPos.set(p.x * spacing, p.y * spacing, p.z * spacing);
-                p.startRot.copy(p.q);
-
-                // Calculate Target (Quantum Snapped)
-                const next = logicCube.calculateNextState(p, currentMove.axis, currentMove.dir);
-                
-                // Store Target
-                p.nextState = next;
-                
-                activeGroup.push(p);
-            }
-        });
+        pivot.rotation.set(0,0,0);
+        pivot.updateMatrixWorld();
+        group.forEach(p => pivot.attach(p.mesh));
     }
 
     const speed = CONFIG.animSpeed;
-    
-    // Turbo Mode
-    if (speed > 1.0) {
-        progress = 1.1;
-    } else {
-        progress += speed;
-    }
+    if (speed >= 1.5) progress = 1.1;
+    else progress += speed;
 
     if (progress >= 1.0) {
-        // --- FINISH ---
-        
-        // 1. Commit the Quantum State
-        activeGroup.forEach(p => {
-            logicCube.commitState(p, p.nextState);
-        });
+        // Finish Move
+        const axisVec = new THREE.Vector3();
+        axisVec[currentMove.axis] = 1;
+        pivot.quaternion.setFromAxisAngle(axisVec, currentMove.dir * (Math.PI / 2));
+        pivot.updateMatrixWorld();
 
-        // 2. Hard Teleport (No visual drift possible)
+        logicCube.rotateLogic(currentMove.axis, currentMove.slice, currentMove.dir);
+        
+        // This function now handles the cleanup safely
         forceVisualSync();
 
         currentMove = null;
-        activeGroup = [];
     } else {
-        // --- ANIMATE ---
-        // We calculate the exact position on the circle for this specific frame.
-        // No Pivots. No Parenting. Pure Math.
-        
-        const angle = currentMove.dir * progress * (Math.PI / 2);
+        // Animate Move
         const axisVec = new THREE.Vector3();
         axisVec[currentMove.axis] = 1;
-
-        activeGroup.forEach(p => {
-            // Position: Rotate the vector around origin (0,0,0)
-            p.mesh.position.copy(p.startPos).applyAxisAngle(axisVec, angle);
-            
-            // Rotation: Rotate the quaternion
-            const qRot = new THREE.Quaternion().setFromAxisAngle(axisVec, angle);
-            p.mesh.quaternion.copy(p.startRot).premultiply(qRot);
-        });
+        pivot.rotation.set(0,0,0);
+        pivot.rotateOnAxis(axisVec, currentMove.dir * progress);
     }
 }
 
-// --- AI AUTO-FIX ---
+// --- HEALER ---
+function validateAndHeal() {
+    if (STATE.isSolving && STATE.memoryStack.length === 0) {
+        let isBroken = false;
+        const faces = [{ax:'x',v:1},{ax:'x',v:-1},{ax:'y',v:1},{ax:'y',v:-1},{ax:'z',v:1},{ax:'z',v:-1}];
+
+        for(let f of faces) {
+            const onFace = logicCube.pieces.filter(p => Math.abs(p[f.ax] - f.v) < 0.1);
+            const oxSet = new Set(onFace.map(p => p.ox));
+            const oySet = new Set(onFace.map(p => p.oy));
+            const ozSet = new Set(onFace.map(p => p.oz));
+            const solved = (oxSet.size===1 && Math.abs([...oxSet][0])===1) || 
+                           (oySet.size===1 && Math.abs([...oySet][0])===1) || 
+                           (ozSet.size===1 && Math.abs([...ozSet][0])===1);
+            if(!solved) isBroken = true;
+        }
+
+        if (isBroken) {
+            log("AI: Integrity Failed. Executing Quantum Repair.");
+            logicCube.forceReset();
+            forceVisualSync(); // Will correctly align everything
+            STATE.isSolving = false;
+            document.getElementById('ai-state').innerText = "REPAIRED";
+            document.getElementById('ai-state').style.color = "#00ff88";
+        } else {
+            checkAndFixAlignment();
+        }
+    }
+}
+
 function checkAndFixAlignment() {
     if (STATE.memoryStack.length > 0) return;
 
-    // Check Top Center (y=1)
     const topPiece = logicCube.pieces.find(p => p.oy === 1 && p.isCenter);
     if(topPiece) {
-        if(Math.abs(topPiece.y - 1) > 0.1) {
-            log("AI: Aligning Top...");
+        if(Math.abs(topPiece.u.y - 1) > 0.1) {
+            log("AI: Aligning Orientation...");
             moveQueue.push({ axis: 'x', slice: 0, dir: 1 });
             moveQueue.push({ axis: 'x', slice: 1, dir: 1 });
             moveQueue.push({ axis: 'x', slice: -1, dir: 1 });
             return;
         }
     }
+    const frontPiece = logicCube.pieces.find(p => p.oz === 1 && p.isCenter);
+    if(frontPiece) {
+        if(Math.abs(frontPiece.f.z - 1) > 0.1) {
+            log("AI: Aligning Front...");
+            moveQueue.push({ axis: 'y', slice: 0, dir: 1 });
+            moveQueue.push({ axis: 'y', slice: 1, dir: 1 });
+            moveQueue.push({ axis: 'y', slice: -1, dir: 1 });
+            return;
+        }
+    }
+    
+    STATE.isSolving = false;
+    document.getElementById('ai-state').innerText = "SOLVED";
+    document.getElementById('ai-state').style.color = "#00ff88";
 }
 
 // --- CONTROLS ---
@@ -317,6 +321,7 @@ function scramble() {
     if (STATE.isAnimating) return;
     if (moveQueue.length > 0) return;
 
+    STATE.isSolving = false;
     const moves = 20;
     const axes = ['x','y','z'];
     const range = (STATE.order - 1) / 2;
@@ -338,6 +343,7 @@ function scramble() {
 
 function solve() {
     if (STATE.isAnimating || !STATE.memoryStack.length) return;
+    STATE.isSolving = true;
     log("AI: Solving...");
     const sol = STATE.memoryStack.slice().reverse().map(m => ({
         axis: m.axis,
@@ -351,7 +357,6 @@ function solve() {
 
 function updateUI() {
     document.getElementById('stack-count').innerText = STATE.memoryStack.length;
-    if(STATE.memoryStack.length === 0) document.getElementById('opt-percent').innerText = "0%";
 }
 function log(msg) {
     const d = document.createElement('div');
@@ -363,9 +368,10 @@ function setupUI() {
     document.getElementById('btn-solve').addEventListener('click', solve);
     document.getElementById('speed-slider').addEventListener('input', e => {
         let val = parseInt(e.target.value);
-        if (val <= 5) CONFIG.animSpeed = val * 0.02; // Slow
-        else if (val <= 15) CONFIG.animSpeed = (val - 5) * 0.05 + 0.1; 
-        else CONFIG.animSpeed = 2.0; // Turbo
+        document.getElementById('speed-val').innerText = val;
+        if (val <= 5) CONFIG.animSpeed = val * 0.02; 
+        else if (val <= 15) CONFIG.animSpeed = (val - 5) * 0.05 + 0.1;
+        else CONFIG.animSpeed = 2.0;
     });
     document.getElementById('puzzle-type').addEventListener('change', e => {
         const val = e.target.value;

@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural-Cube Solver</title>
-    <link rel="icon" type="image/png" href="rubix.png">
+    <title>Rubik's Debugger Edition</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -12,7 +11,7 @@
     <div id="interface">
         <div class="panel">
             <div class="panel-header">
-                <h1>NEURAL<span class="highlight">CUBE</span></h1>
+                <h1>CUBE<span class="highlight">DEBUG</span></h1>
                 <div class="system-status">
                     <span id="ai-state">IDLE</span>
                     <div class="status-dot"></div>
@@ -22,47 +21,43 @@
             <div class="section">
                 <label>Architecture</label>
                 <select id="puzzle-type">
-                    <option value="2">2x2 Pocket Core</option>
+                    <option value="2">2x2 Pocket</option>
                     <option value="3" selected>3x3 Standard</option>
                     <option value="4">4x4 Matrix</option>
                     <option value="5">5x5 Professor</option>
-                    <option value="mirror">Mirror Block (Asymmetric)</option>
+                    <option value="mirror">Mirror Cube</option>
                 </select>
             </div>
 
             <div class="section">
-                <label>Neural Network Controls</label>
+                <label>Operations</label>
                 <div class="btn-group">
-                    <button id="btn-scramble" class="btn warning">
-                        <span class="icon">🎲</span> Scramble
-                    </button>
-                    <button id="btn-solve" class="btn primary">
-                        <span class="icon">🧠</span> Auto-Solve
-                    </button>
+                    <button id="btn-scramble" class="btn warning">Scramble</button>
+                    <button id="btn-solve" class="btn primary">Auto-Solve</button>
                 </div>
             </div>
 
             <div class="stats-grid">
                 <div class="stat-box">
-                    <span class="stat-label">Memory Stack</span>
+                    <span class="stat-label">Moves</span>
                     <span class="stat-value" id="stack-count">0</span>
                 </div>
                 <div class="stat-box">
-                    <span class="stat-label">Optimization</span>
-                    <span class="stat-value" id="opt-percent">0%</span>
+                    <span class="stat-label">Speed</span>
+                    <!-- NEW: Live Number Display -->
+                    <span class="stat-value" id="speed-val">10</span>
                 </div>
             </div>
 
             <div class="section">
-                <label>Processing Speed (Turbo Enabled)</label>
-                <!-- Updated MAX to 20 for super speed -->
-                <input type="range" id="speed-slider" min="1" max="20" value="8">
+                <label>Animation Speed (1-20)</label>
+                <input type="range" id="speed-slider" min="1" max="20" value="10">
             </div>
 
             <div class="terminal">
-                <div class="terminal-bar">KERNEL_OUTPUT</div>
+                <div class="terminal-bar">DEBUG_CONSOLE</div>
                 <div id="console-log" class="console">
-                    <div>> Neural Engine Loaded.</div>
+                    <div>> System Ready.</div>
                 </div>
             </div>
         </div>
