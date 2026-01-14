@@ -504,9 +504,9 @@ function setupUI() {
     document.getElementById('speed-slider').addEventListener('input', e => {
         let val = parseInt(e.target.value);
         document.getElementById('speed-val').innerText = val;
-        // Map slider (1-20) to speed multiplier (0.1x to 10x)
-        // This gives smooth control: 1 = very slow, 10 = normal, 20 = very fast
-        CONFIG.animSpeed = (val / 10) * 0.25;
+        // Aggressive turbo mapping: 1 = very slow, 10 = fast, 20 = ultra fast
+        // We scale animSpeed so high values drastically shorten the move duration
+        CONFIG.animSpeed = 0.1 * val; // val=20 -> animSpeed=2.0 (8x baseline)
     });
     document.getElementById('puzzle-type').addEventListener('change', e => {
         const val = e.target.value;
